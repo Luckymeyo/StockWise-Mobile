@@ -307,6 +307,35 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Help & Support Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>❓</Text>
+            <Text style={styles.sectionTitle}>Bantuan & Dukungan</Text>
+          </View>
+          
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.helpButton}
+              onPress={() => navigation.navigate('Help')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.helpButtonLeft}>
+                <View style={styles.helpIconContainer}>
+                  <Text style={styles.helpIcon}>📖</Text>
+                </View>
+                <View style={styles.helpTextContainer}>
+                  <Text style={styles.helpButtonTitle}>Bantuan & FAQ</Text>
+                  <Text style={styles.helpButtonDescription}>
+                    Panduan lengkap dan jawaban pertanyaan umum
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.helpArrow}>→</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Danger Zone */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -560,6 +589,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.white,
+  },
+
+  // Help Button
+  helpButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  helpButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  helpIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.bgSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  helpIcon: {
+    fontSize: 24,
+  },
+  helpTextContainer: {
+    flex: 1,
+  },
+  helpButtonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textDark,
+    marginBottom: 4,
+  },
+  helpButtonDescription: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
+  helpArrow: {
+    fontSize: 20,
+    color: Colors.primary,
+    fontWeight: '600',
+    marginLeft: 12,
   },
 
   // Bottom Spacing

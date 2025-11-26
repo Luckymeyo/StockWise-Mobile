@@ -12,6 +12,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ManagementScreen from '../screens/ManagementScreen';
 import FinancialAnalysisScreen from '../screens/FinancialAnalysisScreen';
+import HelpScreen from '../screens/HelpScreen';
 
 // Inventory screens
 import InventoryScreenNew from '../screens/InventoryScreenNew';
@@ -36,6 +37,7 @@ function HomeStack() {
       <Stack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'Home', headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', headerShown: false }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+      <Stack.Screen name="Help" component={HelpScreen} options={{ title: 'Bantuan & FAQ', headerShown: false }} />
     </Stack.Navigator>
   );
 }
