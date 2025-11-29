@@ -1,9 +1,10 @@
 /**
- * App.js - Updated with Notification Integration
- * This replaces your current App.js
+ * App.js - StockWise Mobile Entry Point
+ * Updated with Notification Integration and Bug Fixes
+ * @version 1.0.0
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'react-native';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -23,11 +24,22 @@ import BackgroundFetch from 'react-native-background-fetch';
 BackgroundFetch.registerHeadlessTask(BackgroundFetchHeadlessTask);
 
 export default function App() {
-  const navigationRef = React.useRef();
+  const navigationRef = useRef(null);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [isDbReady, setIsDbReady] = useState(false);
 
+  // Initialize database and notifications
   useEffect(() => {
     initializeApp();
   }, []);
+
+  // Setup notification handler after navigation is ready
+  useEffect(() => {
+    if (isNavigationReady && isDbReady && navigationRef.current) {
+      setupNotificationHandler(navigationRef.current);
+      console.log('✅ Notification handler setup');
+    }
+  }, [isNavigationReady, isDbReady]);
 
   const initializeApp = async () => {
     try {
@@ -36,6 +48,7 @@ export default function App() {
       // 1. Initialize database
       await initDatabase();
       console.log('✅ Database initialized');
+      setIsDbReady(true);
 
       // 2. Initialize notification channels
       await initializeNotifications();
@@ -53,20 +66,22 @@ export default function App() {
         console.log('⚠️ Notification permission denied by user');
       }
 
-      // 5. Setup notification press handler
-      if (navigationRef.current) {
-        setupNotificationHandler(navigationRef.current);
-        console.log('✅ Notification handler setup');
-      }
-
       console.log('✅ App initialized successfully');
     } catch (error) {
       console.error('❌ Error initializing app:', error);
     }
   };
 
+  const onNavigationReady = () => {
+    setIsNavigationReady(true);
+    console.log('✅ Navigation ready');
+  };
+
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer 
+      ref={navigationRef}
+      onReady={onNavigationReady}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#6366F1" />
       <AppNavigator />
     </NavigationContainer>

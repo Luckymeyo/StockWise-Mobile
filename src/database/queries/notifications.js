@@ -513,13 +513,14 @@ const checkRecentNotification = async (type, productId, hoursAgo = 24) => {
     
     return new Promise((resolve, reject) => {
       db.transaction((tx) => {
+        // Fixed: Use parameterized query to prevent SQL injection
         tx.executeSql(
           `SELECT id FROM notifications 
            WHERE type = ? 
            AND product_id = ?
-           AND datetime(created_at) >= datetime('now', 'localtime', '-${hoursAgo} hours')
+           AND datetime(created_at) >= datetime('now', 'localtime', ? || ' hours')
            LIMIT 1`,
-          [type, productId],
+          [type, productId, '-' + String(hoursAgo)],
           (_, { rows }) => {
             resolve(rows.length > 0);
           },

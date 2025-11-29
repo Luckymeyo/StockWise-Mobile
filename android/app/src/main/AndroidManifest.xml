@@ -1,24 +1,31 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Existing Permissions (YOUR ORIGINAL) -->
+    <!-- Core Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Notification Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.CAMERA" />
     
-    <!-- NEW: Camera & Photo Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Camera Permission (single declaration) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    
+    <!-- Storage Permissions -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
     <uses-permission 
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"
         tools:replace="android:maxSdkVersion" />
+    <!-- Android 13+ Media Permissions -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    
+
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -26,9 +33,10 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
-      android:usesCleartextTraffic="true">
+      android:usesCleartextTraffic="true"
+      android:supportsRtl="true">
       
-      <!-- NEW: File Provider for Camera/Photos -->
+      <!-- File Provider for Camera/Photos -->
       <provider
         android:name="androidx.core.content.FileProvider"
         android:authorities="${applicationId}.fileprovider"
@@ -53,19 +61,15 @@
         </intent-filter>
       </activity>
       
-      <!-- Notification Services (YOUR ORIGINAL) -->
-      <service
-        android:name=".DailyCheckService"
-        android:enabled="true"
-        android:exported="false" />
-        
+      <!-- Background Fetch Boot Receiver (from react-native-background-fetch) -->
       <receiver
-        android:name=".BootReceiver"
+        android:name="com.transistorsoft.rnbackgroundfetch.RNBackgroundFetchBootReceiver"
         android:enabled="true"
         android:exported="true">
         <intent-filter>
           <action android:name="android.intent.action.BOOT_COMPLETED" />
         </intent-filter>
       </receiver>
+      
     </application>
 </manifest>

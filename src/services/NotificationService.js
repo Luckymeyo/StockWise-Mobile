@@ -155,7 +155,8 @@ export async function sendLocalNotification(notification) {
     console.log('✅ Notification sent:', notificationId);
     
     // Also save to database for in-app display
-    if (data.productId && data.productName) {
+    // Fixed: Added null check for data object
+    if (data && data.productId && data.productName) {
       await createNotification(type, {
         productId: data.productId,
         productName: data.productName,
