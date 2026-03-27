@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, Platform } from 'react-native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
 import Colors from '../styles/colors';
 import { getUnreadCount } from '../database/queries/notifications';
 
-// Existing screens
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import ManagementScreen from '../screens/ManagementScreen';
 import FinancialAnalysisScreen from '../screens/FinancialAnalysisScreen';
 import HelpScreen from '../screens/HelpScreen';
-
-// Inventory screens
 import InventoryScreenNew from '../screens/InventoryScreenNew';
 import AddItemScreen from '../screens/AddItemScreen';
 import EditItemScreen from '../screens/EditItemScreen';
@@ -23,278 +21,106 @@ import ItemDetailScreen from '../screens/ItemDetailScreen';
 import StockInScreen from '../screens/StockInScreen';
 import StockOutScreen from '../screens/StockOutScreen';
 import ExpiringBatchesScreen from '../screens/ExpiringBatchesScreen';
-
-// NEW: Barcode Label Screen
 import BarcodeLabelScreen from '../screens/BarcodeLabelScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Home Stack
 function HomeStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen name="HomeMain" component={HomeScreen} options={{ title: 'Home', headerShown: false }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings', headerShown: false }} />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
-      <Stack.Screen name="Help" component={HelpScreen} options={{ title: 'Bantuan & FAQ', headerShown: false }} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="HomeMain" component={HomeScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Help" component={HelpScreen} />
     </Stack.Navigator>
   );
 }
 
-// Inventory Stack
 function InventoryStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="InventoryMain" 
-        component={InventoryScreenNew} 
-        options={{ 
-          title: 'Inventory',
-          headerShown: false 
-        }} 
-      />
-      <Stack.Screen 
-        name="ItemDetail"
-        component={ItemDetailScreen}
-        options={{ 
-          title: 'Detail Produk',
-          headerShown: false
-        }} 
-      />
-      <Stack.Screen 
-        name="StockIn"
-        component={StockInScreen}
-        options={{ 
-          title: 'Stok Masuk',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
-      <Stack.Screen 
-        name="StockOut"
-        component={StockOutScreen}
-        options={{ 
-          title: 'Stok Keluar',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
-      <Stack.Screen 
-        name="ExpiringBatches"
-        component={ExpiringBatchesScreen}
-        options={{ 
-          title: 'Batch Kadaluarsa',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
-      <Stack.Screen 
-        name="AddItem" 
-        component={AddItemScreen}
-        options={{ 
-          title: 'Tambah Barang',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
-      <Stack.Screen 
-        name="EditItem" 
-        component={EditItemScreen}
-        options={{ 
-          title: 'Edit Produk',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
-      <Stack.Screen 
-        name="BarcodeScanner" 
-        component={BarcodeScannerScreen}
-        options={{ 
-          title: 'Scan Barcode',
-          headerShown: false,
-          presentation: 'fullScreenModal'
-        }} 
-      />
-      {/* NEW: Barcode Label Screen */}
-      <Stack.Screen 
-        name="BarcodeLabel" 
-        component={BarcodeLabelScreen}
-        options={{ 
-          title: 'Label Barcode',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="InventoryMain" component={InventoryScreenNew} />
+      <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      <Stack.Screen name="StockIn" component={StockInScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="StockOut" component={StockOutScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="ExpiringBatches" component={ExpiringBatchesScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="AddItem" component={AddItemScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="EditItem" component={EditItemScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} options={{ presentation: 'fullScreenModal' }} />
+      <Stack.Screen name="BarcodeLabel" component={BarcodeLabelScreen} options={{ presentation: 'card' }} />
     </Stack.Navigator>
   );
 }
 
-// Management Stack
 function ManagementStack() {
   return (
-    <Stack.Navigator>
-      <Stack.Screen 
-        name="ManagementMain" 
-        component={ManagementScreen} 
-        options={{ 
-          title: 'Management',
-          headerShown: false 
-        }} 
-      />
-      <Stack.Screen 
-        name="FinancialAnalysis"
-        component={FinancialAnalysisScreen}
-        options={{ 
-          title: 'Analisis Keuangan',
-          headerShown: false,
-          presentation: 'card'
-        }} 
-      />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ManagementMain" component={ManagementScreen} />
+      <Stack.Screen name="FinancialAnalysis" component={FinancialAnalysisScreen} options={{ presentation: 'card' }} />
     </Stack.Navigator>
   );
 }
 
-// Modern Tab Icon Component
-function TabIcon({ label, focused, badge }) {
+function HomeTabIcon({ focused }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+  useEffect(() => {
+    const load = async () => { try { setUnreadCount(await getUnreadCount()); } catch(e) {} };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <View style={{
-      alignItems: 'center',
-      justifyContent: 'center',
-      position: 'relative',
-      marginTop: 4,
-    }}>
-      <View style={{
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: focused ? Colors.primary : Colors.white,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: focused ? Colors.primary : '#000',
-        shadowOffset: { width: 0, height: focused ? 4 : 2 },
-        shadowOpacity: focused ? 0.3 : 0.1,
-        shadowRadius: focused ? 8 : 4,
-        elevation: focused ? 6 : 2,
-        transform: [{ scale: focused ? 1.05 : 1 }],
-      }}>
-        <Text style={{ 
-          fontSize: 26,
-          opacity: focused ? 1 : 0.7,
-        }}>
-          {label}
-        </Text>
-      </View>
-      {badge > 0 && (
-        <View style={{
-          position: 'absolute',
-          top: -2,
-          right: -2,
-          backgroundColor: Colors.danger,
-          borderRadius: 10,
-          minWidth: 20,
-          height: 20,
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingHorizontal: 5,
-          borderWidth: 2,
-          borderColor: Colors.white,
-          shadowColor: Colors.danger,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.4,
-          shadowRadius: 4,
-          elevation: 4,
-        }}>
-          <Text style={{ 
-            color: Colors.white, 
-            fontSize: 11, 
-            fontWeight: '700',
-          }}>
-            {badge > 99 ? '99+' : badge}
-          </Text>
+    <View style={{ alignItems: 'center', position: 'relative' }}>
+      <MaterialCommunityIcons name={focused ? 'home' : 'home-outline'} size={24} color={focused ? Colors.primary : Colors.tabInactive} />
+      {unreadCount > 0 && (
+        <View style={{ position: 'absolute', top: -4, right: -10, backgroundColor: Colors.danger, borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 1.5, borderColor: Colors.white }}>
+          <Text style={{ color: Colors.white, fontSize: 9, fontWeight: '700' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
         </View>
-      )}
-      {focused && (
-        <View style={{
-          position: 'absolute',
-          bottom: -8,
-          width: 4,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: Colors.primary,
-        }} />
       )}
     </View>
   );
 }
 
-// Home Tab Icon with notification badge
-function HomeTabIcon({ focused }) {
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const loadUnreadCount = async () => {
-    try {
-      const count = await getUnreadCount();
-      setUnreadCount(count);
-    } catch (error) {
-      console.error('Error loading unread count:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadUnreadCount();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return <TabIcon label="🏠" focused={focused} badge={unreadCount} />;
+function InventoryTabIcon({ focused }) {
+  return <MaterialCommunityIcons name={focused ? 'package-variant' : 'package-variant-closed'} size={24} color={focused ? Colors.primary : Colors.tabInactive} />;
 }
 
-// Main App Navigator
+function ManagementTabIcon({ focused }) {
+  return <MaterialCommunityIcons name={focused ? 'clipboard-text' : 'clipboard-text-outline'} size={24} color={focused ? Colors.primary : Colors.tabInactive} />;
+}
+
 export default function AppNavigator() {
   return (
-    <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: { 
-          backgroundColor: Colors.white,
-          height: 76,
-          paddingTop: 12,
-          paddingBottom: 8,
-          borderTopWidth: 1,
-          borderTopColor: Colors.border,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 8,
-          elevation: 8,
-        },
-        tabBarShowLabel: false,
-      }}
-      initialRouteName="HomeTab"
-    >
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeStack}
-        options={{
-          tabBarIcon: ({ focused }) => <HomeTabIcon focused={focused} />,
+    <>
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: Colors.white,
+            height: Platform.OS === 'android' ? 64 : 84,
+            paddingTop: 8,
+            paddingBottom: Platform.OS === 'android' ? 10 : 28,
+            borderTopWidth: 1,
+            borderTopColor: Colors.border,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          tabBarActiveTintColor: Colors.primary,
+          tabBarInactiveTintColor: Colors.tabInactive,
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
         }}
-      />
-      <Tab.Screen
-        name="Inventory"
-        component={InventoryStack}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="🏬" focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Management"
-        component={ManagementStack}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon label="📋" focused={focused} />,
-        }}
-      />
-    </Tab.Navigator>
+        initialRouteName="HomeTab"
+      >
+        <Tab.Screen name="HomeTab" component={HomeStack}
+          options={{ tabBarLabel: 'Beranda', tabBarIcon: HomeTabIcon }} />
+        <Tab.Screen name="Inventory" component={InventoryStack}
+          options={{ tabBarLabel: 'Inventori', tabBarIcon: InventoryTabIcon }} />
+        <Tab.Screen name="Management" component={ManagementStack}
+          options={{ tabBarLabel: 'Riwayat', tabBarIcon: ManagementTabIcon }} />
+      </Tab.Navigator>
+      <Toast />
+    </>
   );
 }

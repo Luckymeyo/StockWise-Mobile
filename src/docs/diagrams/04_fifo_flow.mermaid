@@ -1,0 +1,47 @@
+graph TD
+    A([User initiates StockOut]) --> B{Validate quantity\n> 0 and <= current_stock}
+    B -->|Invalid| B1([Show Error Alert])
+    B -->|Valid| C[Get product batches\ngetProductBatches productId\nORDER BY expiry_date ASC]
+
+    C --> D{Batches exist?}
+
+    D -->|No batches| E[Single OUT transaction\ncreatStockTransaction\ntype=OUT, qty, no batch info]
+
+    D -->|Has batches| F[Set remaining = qty\nIterate batches oldest-first]
+
+    F --> G{remaining > 0\nand more batches?}
+    G -->|No| H[All batches processed]
+    G -->|Yes| I[deduct = min remaining, batch.current_quantity\nremaining -= deduct]
+    I --> J[createStockTransaction\ntype=OUT, deduct, batch_number, batch_expiry_date]
+    J --> G
+
+    E --> K[createNotification STOCK_OUT]
+    H --> K
+
+    K --> L{New stock <=\nmin_stock_threshold?}
+    L -->|Yes| M[createNotification LOW_STOCK]
+    L -->|No| N[Toast success + navigation.goBack]
+    M --> N
+
+    subgraph StockIn["StockIn Flow"]
+        SI_A([User initiates StockIn]) --> SI_B{Validate quantity > 0}
+        SI_B -->|Invalid| SI_B1([Show Error Alert])
+        SI_B -->|Valid| SI_C{Batch tracking\nenabled?}
+        SI_C -->|No| SI_D[createStockTransaction\ntype=IN, qty, no batch]
+        SI_C -->|Yes| SI_E[createStockTransaction\ntype=IN, qty, batch_number, batch_expiry_date]
+        SI_D --> SI_F[createNotification STOCK_IN]
+        SI_E --> SI_F
+        SI_F --> SI_G[Toast success + navigation.goBack]
+    end
+
+    subgraph Adjust["ADJUST Transaction Side Path"]
+        ADJ_A([Stock adjustment needed]) --> ADJ_B[createStockTransaction\ntype=ADJUST\nDirectly sets balance_after\nExcluded from batch accounting]
+    end
+
+    subgraph BatchView["product_batches VIEW Logic"]
+        BV_A[stock_transactions WHERE\nbatch_number IS NOT NULL\nAND type IN IN, OUT\nGROUP BY product_id, batch_number, expiry_date]
+        BV_A --> BV_B[current_quantity =\nSUM IN qty - SUM OUT qty]
+        BV_B --> BV_C{current_quantity > 0?}
+        BV_C -->|Yes| BV_D[Include in view\nORDER BY expiry_date ASC NULLS LAST]
+        BV_C -->|No| BV_E[Exclude - batch depleted]
+    end

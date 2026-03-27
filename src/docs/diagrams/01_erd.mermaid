@@ -1,0 +1,102 @@
+erDiagram
+    products {
+        INTEGER id PK
+        TEXT name
+        TEXT sku UK
+        TEXT barcode
+        INTEGER category_id FK
+        TEXT description
+        TEXT photo_uri
+        REAL purchase_price
+        REAL selling_price
+        REAL current_stock
+        TEXT unit
+        REAL min_stock_threshold
+        TEXT expiry_date
+        TEXT created_at
+        TEXT updated_at
+        INTEGER is_active
+    }
+
+    categories {
+        INTEGER id PK
+        TEXT name UK
+        TEXT description
+        TEXT icon
+        TEXT created_at
+    }
+
+    stock_transactions {
+        INTEGER id PK
+        INTEGER product_id FK
+        TEXT type
+        REAL quantity
+        TEXT unit
+        TEXT reference_no
+        TEXT notes
+        INTEGER user_id
+        TEXT transaction_date
+        REAL balance_after
+        TEXT batch_number
+        TEXT batch_expiry_date
+    }
+
+    suppliers {
+        INTEGER id PK
+        TEXT name
+        TEXT contact_person
+        TEXT phone
+        TEXT email
+        TEXT address
+        TEXT created_at
+    }
+
+    low_stock_alerts {
+        INTEGER id PK
+        INTEGER product_id FK
+        REAL current_stock
+        REAL threshold
+        TEXT alert_date
+        INTEGER is_resolved
+    }
+
+    expiry_alerts {
+        INTEGER id PK
+        INTEGER product_id FK
+        TEXT expiry_date
+        INTEGER days_until_expiry
+        TEXT alert_date
+        INTEGER is_resolved
+    }
+
+    notifications {
+        INTEGER id PK
+        TEXT type
+        TEXT priority
+        TEXT title
+        TEXT message
+        INTEGER product_id FK
+        TEXT product_name
+        REAL quantity
+        TEXT icon
+        INTEGER is_read
+        TEXT created_at
+    }
+
+    product_batches_view {
+        INTEGER product_id
+        TEXT batch_number
+        TEXT batch_expiry_date
+        TEXT product_name
+        TEXT unit
+        REAL total_in
+        REAL total_out
+        REAL current_quantity
+    }
+
+    products ||--o{ stock_transactions : "has"
+    products ||--o{ low_stock_alerts : "triggers"
+    products ||--o{ expiry_alerts : "triggers"
+    products ||--o{ notifications : "referenced in"
+    categories ||--o{ products : "categorizes"
+    stock_transactions ||--o{ product_batches_view : "aggregated into"

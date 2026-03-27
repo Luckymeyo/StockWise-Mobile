@@ -1,573 +1,153 @@
-/**
- * Inventory List Screen
- * Display all products with search, filter, and actions
- */
-
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  RefreshControl,
-  Alert,
-  Image,
-} from 'react-native';
+// Inventory list screen - Claude-Inspired Redesign
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl, Alert, Image, StatusBar, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../styles/colors';
-import {
-  getAllProducts,
-  searchProducts,
-  getLowStockProducts,
-  getNearExpiryProducts,
-  deleteProduct,
-} from '../database/queries/products';
+import { getAllProducts, getLowStockProducts, getNearExpiryProducts, deleteProduct } from '../database/queries/products';
 
 export default function InventoryScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'low', 'expiry'
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceTimer = useRef(null);
+  const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Load products when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      loadProducts();
-    }, [])
-  );
-
-  // Load products based on filter
-  const loadProducts = async () => {
+  // loadProducts is defined before the hooks that reference it so the
+  // useCallback/useEffect dependency arrays can capture the stable reference.
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     try {
       let data = [];
-      
-      switch (activeFilter) {
-        case 'low':
-          data = await getLowStockProducts();
-          break;
-        case 'expiry':
-          data = await getNearExpiryProducts(30);
-          break;
-        default:
-          data = await getAllProducts();
-      }
-
-      setProducts(data);
-      setFilteredProducts(data);
-    } catch (error) {
-      console.error('Error loading products:', error);
-      Alert.alert('Error', 'Gagal memuat data produk');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Refresh products
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadProducts();
-    setRefreshing(false);
-  };
-
-  // Handle search
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredProducts(products);
-    } else {
-      const filtered = products.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (product.sku && product.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (product.barcode && product.barcode.includes(searchQuery))
-      );
-      setFilteredProducts(filtered);
-    }
-  }, [searchQuery, products]);
-
-  // Handle filter change
-  const changeFilter = (filter) => {
-    setActiveFilter(filter);
-    setSearchQuery('');
-  };
-
-  // Reload when filter changes
-  useEffect(() => {
-    loadProducts();
+      switch (activeFilter) { case 'low': data = await getLowStockProducts(); break; case 'expiry': data = await getNearExpiryProducts(30); break; default: data = await getAllProducts(); }
+      setProducts(data); setFilteredProducts(data);
+    } catch (error) { console.error('Error loading products:', error); Alert.alert('Error', 'Gagal memuat data produk'); }
+    finally { setLoading(false); }
   }, [activeFilter]);
 
-  // Navigate to Add Item
-  const handleAddItem = () => {
-    navigation.navigate('AddItem');
-  };
+  // Reload when filter changes or screen comes back into focus (e.g. after add/edit).
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useFocusEffect(useCallback(() => { loadProducts(); }, [loadProducts]));
 
-  // Navigate to Item Detail
-  const handleItemPress = (item) => {
-    navigation.navigate('ItemDetail', { productId: item.id });
-  };
+  const onRefresh = async () => { setRefreshing(true); await loadProducts(); setRefreshing(false); };
 
-  // Delete product with confirmation
-  const handleDeleteItem = (item) => {
-    Alert.alert(
-      'Hapus Produk',
-      `Yakin ingin menghapus "${item.name}"?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProduct(item.id);
-              Alert.alert('Berhasil', 'Produk berhasil dihapus');
-              loadProducts();
-            } catch (error) {
-              Alert.alert('Error', 'Gagal menghapus produk');
-            }
-          },
-        },
-      ]
-    );
-  };
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => { setDebouncedQuery(searchQuery); }, 250);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [searchQuery]);
 
-  // Format currency
-  const formatCurrency = (value) => {
-    if (!value) return 'Rp 0';
-    return `Rp ${parseFloat(value).toLocaleString('id-ID')}`;
-  };
+  useEffect(() => {
+    if (debouncedQuery.trim() === '') { setFilteredProducts(products); }
+    else { setFilteredProducts(products.filter(p => p.name.toLowerCase().includes(debouncedQuery.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(debouncedQuery.toLowerCase())) || (p.barcode && p.barcode.includes(debouncedQuery)))); }
+  }, [debouncedQuery, products]);
 
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
+  const handleAddItem = () => navigation.navigate('AddItem');
+  const handleItemPress = (item) => navigation.navigate('ItemDetail', { productId: item.id });
+  const handleDeleteItem = (item) => { Alert.alert('Hapus Produk', `Yakin ingin menghapus "${item.name}"?`, [{ text: 'Batal', style: 'cancel' }, { text: 'Hapus', style: 'destructive', onPress: async () => { try { await deleteProduct(item.id); loadProducts(); } catch (e) { Alert.alert('Error', 'Gagal menghapus produk'); } } }]); };
+  const formatCurrency = (v) => !v ? 'Rp 0' : `Rp ${parseFloat(v).toLocaleString('id-ID')}`;
+  const formatDate = (d) => { if(!d) return '-'; const dt = new Date(d); return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`; };
 
-  // Get stock status color
-  const getStockColor = (product) => {
-    if (product.is_low_stock) return '#EF4444';
-    return '#10B981';
-  };
-
-  // Render product item
   const renderProduct = ({ item }) => {
     const isExpiring = item.is_near_expiry === 1;
     const isLowStock = item.is_low_stock === 1;
-
     return (
-      <TouchableOpacity
-        style={styles.productCard}
-        onPress={() => handleItemPress(item)}
-        onLongPress={() => handleDeleteItem(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.productImageContainer}>
-          {item.photo_uri ? (
-            <Image source={{ uri: item.photo_uri }} style={styles.productImage} />
-          ) : (
-            <View style={styles.productImagePlaceholder}>
-              <Text style={styles.placeholderIcon}>📦</Text>
-            </View>
-          )}
+      <TouchableOpacity style={st.productCard} onPress={() => handleItemPress(item)} onLongPress={() => handleDeleteItem(item)} activeOpacity={0.7}>
+        <View style={st.productImageContainer}>
+          {item.photo_uri ? <Image source={{uri:item.photo_uri}} style={st.productImage} /> :
+           <View style={st.productImagePlaceholder}><MaterialCommunityIcons name="package-variant" size={28} color={Colors.textLight} /></View>}
         </View>
-
-        <View style={styles.productInfo}>
-          <Text style={styles.productName} numberOfLines={2}>
-            {item.name}
-          </Text>
-
-          {item.sku && (
-            <Text style={styles.productSku}>SKU: {item.sku}</Text>
-          )}
-
-          <View style={styles.productMeta}>
-            <View style={styles.metaRow}>
-              <Text style={[styles.stockText, { color: getStockColor(item) }]}>
-                Stok: {item.current_stock} {item.unit}
-              </Text>
-              {isLowStock && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>⚠️ Low</Text>
-                </View>
-              )}
+        <View style={st.productInfo}>
+          <Text style={st.productName} numberOfLines={2}>{item.name}</Text>
+          {item.sku && <Text style={st.productSku}>SKU: {item.sku}</Text>}
+          <View style={{gap:2}}>
+            <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+              <Text style={[st.stockText, {color: isLowStock ? Colors.danger : Colors.success}]}>Stok: {item.current_stock} {item.unit}</Text>
+              {isLowStock && <View style={st.lowBadge}><MaterialCommunityIcons name="alert-circle" size={12} color={Colors.warning} /><Text style={st.lowBadgeText}>Low</Text></View>}
             </View>
-
-            <Text style={styles.priceText}>
-              {formatCurrency(item.selling_price)}
-            </Text>
-
-            {item.expiry_date && (
-              <Text style={[styles.expiryText, isExpiring && styles.expiryWarning]}>
-                Exp: {formatDate(item.expiry_date)}
-                {isExpiring && ' ⏰'}
-              </Text>
-            )}
+            <Text style={st.priceText}>{formatCurrency(item.selling_price)}</Text>
+            {item.expiry_date && <View style={{flexDirection:'row',alignItems:'center',gap:4}}>
+              <MaterialCommunityIcons name="clock-outline" size={12} color={isExpiring ? Colors.danger : Colors.textLight} />
+              <Text style={[st.expiryText, isExpiring && {color:Colors.danger,fontWeight:'600'}]}>Exp: {formatDate(item.expiry_date)}</Text>
+            </View>}
           </View>
         </View>
-
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => handleItemPress(item)}
-        >
-          <Text style={styles.moreIcon}>›</Text>
-        </TouchableOpacity>
+        <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.textLight} />
       </TouchableOpacity>
     );
   };
 
-  // Empty state
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>📦</Text>
-      <Text style={styles.emptyTitle}>Belum ada produk</Text>
-      <Text style={styles.emptyText}>
-        {activeFilter === 'all'
-          ? 'Tambahkan produk pertama Anda'
-          : activeFilter === 'low'
-          ? 'Tidak ada produk dengan stok rendah'
-          : 'Tidak ada produk yang akan kadaluarsa'}
-      </Text>
-      {activeFilter === 'all' && (
-        <TouchableOpacity style={styles.emptyButton} onPress={handleAddItem}>
-          <Text style={styles.emptyButtonText}>+ Tambah Produk</Text>
-        </TouchableOpacity>
-      )}
+    <View style={st.emptyContainer}>
+      <MaterialCommunityIcons name={activeFilter==='low'?'alert-circle-outline':activeFilter==='expiry'?'clock-alert-outline':'package-variant-plus'} size={56} color={Colors.textLight} />
+      <Text style={st.emptyTitle}>{activeFilter==='all'?'Belum ada produk':activeFilter==='low'?'Stok aman semua':'Tidak ada yang kadaluarsa'}</Text>
+      <Text style={st.emptyText}>{activeFilter==='all'?'Tambahkan produk pertama Anda':activeFilter==='low'?'Tidak ada produk dengan stok rendah':'Tidak ada produk yang akan kadaluarsa'}</Text>
+      {activeFilter==='all' && <TouchableOpacity style={st.emptyButton} onPress={handleAddItem}><MaterialCommunityIcons name="plus" size={18} color={Colors.white} /><Text style={st.emptyButtonText}>Tambah Produk</Text></TouchableOpacity>}
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Inventori</Text>
-          <TouchableOpacity style={styles.addButton} onPress={handleAddItem}>
-            <Text style={styles.addIcon}>+</Text>
-          </TouchableOpacity>
+    <SafeAreaView style={st.safe} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+      <View style={st.container}>
+        <View style={st.header}><Text style={st.headerTitle}>Inventori</Text>
+          <TouchableOpacity style={st.addButton} onPress={handleAddItem} activeOpacity={0.7}><MaterialCommunityIcons name="plus" size={22} color={Colors.white} /></TouchableOpacity>
         </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Cari produk, SKU, atau barcode..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== '' && (
-            <TouchableOpacity
-              style={styles.clearSearch}
-              onPress={() => setSearchQuery('')}
-            >
-              <Text style={styles.clearIcon}>✕</Text>
+        <View style={st.searchContainer}>
+          <MaterialCommunityIcons name="magnify" size={20} color={Colors.textLight} />
+          <TextInput style={st.searchInput} placeholder="Cari produk, SKU, atau barcode..." placeholderTextColor={Colors.textLight} value={searchQuery} onChangeText={setSearchQuery} />
+          {searchQuery !== '' && <TouchableOpacity onPress={() => setSearchQuery('')}><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textLight} /></TouchableOpacity>}
+        </View>
+        <View style={st.filterContainer}>
+          {['all','low','expiry'].map(f => (
+            <TouchableOpacity key={f} style={[st.filterBtn, activeFilter===f && st.filterBtnActive]} onPress={() => {setActiveFilter(f);setSearchQuery('');}} activeOpacity={0.7}>
+              <Text style={[st.filterText, activeFilter===f && st.filterTextActive]}>{f==='all'?'Semua':f==='low'?'Stok Rendah':'Kadaluarsa'}</Text>
             </TouchableOpacity>
-          )}
+          ))}
         </View>
-
-        {/* Filters */}
-        <View style={styles.filterContainer}>
-          <TouchableOpacity
-            style={[styles.filterBtn, activeFilter === 'all' && styles.filterBtnActive]}
-            onPress={() => changeFilter('all')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'all' && styles.filterTextActive]}>
-              Semua
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterBtn, activeFilter === 'low' && styles.filterBtnActive]}
-            onPress={() => changeFilter('low')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'low' && styles.filterTextActive]}>
-              Stok Rendah
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.filterBtn, activeFilter === 'expiry' && styles.filterBtnActive]}
-            onPress={() => changeFilter('expiry')}
-          >
-            <Text style={[styles.filterText, activeFilter === 'expiry' && styles.filterTextActive]}>
-              Kadaluarsa
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Product List */}
-        <FlatList
-          data={filteredProducts}
-          renderItem={renderProduct}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={renderEmpty}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
-        />
-
-        {/* FAB - Floating Add Button */}
-        {filteredProducts.length > 0 && (
-          <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
-            <Text style={styles.fabIcon}>+</Text>
-          </TouchableOpacity>
+        {loading && !refreshing && (
+          <View style={st.loadingOverlay}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
         )}
+        <FlatList data={filteredProducts} renderItem={renderProduct} keyExtractor={item => item.id.toString()} contentContainerStyle={st.listContent} ListEmptyComponent={renderEmpty}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />} showsVerticalScrollIndicator={false} />
+        {filteredProducts.length > 0 && <TouchableOpacity style={st.fab} onPress={handleAddItem} activeOpacity={0.8}><MaterialCommunityIcons name="plus" size={28} color={Colors.white} /></TouchableOpacity>}
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.textDark,
-  },
-  addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.cardBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addIcon: {
-    color: Colors.white,
-    fontSize: 24,
-    fontWeight: '300',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.white,
-    marginHorizontal: 20,
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: Colors.textDark,
-  },
-  clearSearch: {
-    padding: 4,
-  },
-  clearIcon: {
-    color: Colors.textLight,
-    fontSize: 16,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  filterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  filterBtnActive: {
-    backgroundColor: Colors.cardBlue,
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textDark,
-  },
-  filterTextActive: {
-    color: Colors.white,
-  },
-  listContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  productCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  productImageContainer: {
-    width: 70,
-    height: 70,
-    marginRight: 12,
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  productImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderIcon: {
-    fontSize: 32,
-  },
-  productInfo: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  productName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textDark,
-    marginBottom: 4,
-  },
-  productSku: {
-    fontSize: 12,
-    color: Colors.textLight,
-    marginBottom: 8,
-  },
-  productMeta: {
-    gap: 4,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stockText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  badge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#92400E',
-  },
-  priceText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.cardBlue,
-  },
-  expiryText: {
-    fontSize: 12,
-    color: Colors.textLight,
-  },
-  expiryWarning: {
-    color: '#EF4444',
-    fontWeight: '600',
-  },
-  moreButton: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreIcon: {
-    fontSize: 28,
-    color: Colors.textLight,
-    fontWeight: '300',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textDark,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textLight,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  emptyButton: {
-    backgroundColor: Colors.cardBlue,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  emptyButtonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.cardBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabIcon: {
-    color: Colors.white,
-    fontSize: 32,
-    fontWeight: '300',
-  },
+const st = StyleSheet.create({
+  safe:{flex:1,backgroundColor:Colors.bg}, container:{flex:1},
+  header:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',paddingHorizontal:20,paddingVertical:16,backgroundColor:Colors.white,borderBottomWidth:1,borderBottomColor:Colors.border},
+  headerTitle:{fontSize:24,fontWeight:'700',color:Colors.textDark},
+  addButton:{width:36,height:36,borderRadius:12,backgroundColor:Colors.primary,alignItems:'center',justifyContent:'center'},
+  searchContainer:{flexDirection:'row',alignItems:'center',backgroundColor:Colors.white,marginHorizontal:20,marginTop:12,paddingHorizontal:14,paddingVertical:10,borderRadius:12,borderWidth:1,borderColor:Colors.cardBorder},
+  searchInput:{flex:1,fontSize:14,color:Colors.textDark,marginLeft:8,paddingVertical:0},
+  filterContainer:{flexDirection:'row',paddingHorizontal:20,paddingVertical:12,gap:8},
+  filterBtn:{paddingHorizontal:14,paddingVertical:8,borderRadius:20,backgroundColor:Colors.white,borderWidth:1,borderColor:Colors.cardBorder},
+  filterBtnActive:{backgroundColor:Colors.primary,borderColor:Colors.primary},
+  filterText:{fontSize:13,fontWeight:'600',color:Colors.textSecondary}, filterTextActive:{color:Colors.white},
+  listContent:{padding:20,paddingBottom:100},
+  productCard:{flexDirection:'row',alignItems:'center',backgroundColor:Colors.white,borderRadius:14,padding:12,marginBottom:10,borderWidth:1,borderColor:Colors.cardBorder},
+  productImageContainer:{width:64,height:64,marginRight:12}, productImage:{width:'100%',height:'100%',borderRadius:10},
+  productImagePlaceholder:{width:'100%',height:'100%',borderRadius:12,backgroundColor:Colors.cream || Colors.bgSecondary,alignItems:'center',justifyContent:'center'},
+  productInfo:{flex:1,justifyContent:'space-between'},
+  productName:{fontSize:15,fontWeight:'600',color:Colors.textDark,marginBottom:2}, productSku:{fontSize:11,color:Colors.textLight,marginBottom:6},
+  stockText:{fontSize:13,fontWeight:'600'}, priceText:{fontSize:13,fontWeight:'600',color:Colors.primary},
+  lowBadge:{flexDirection:'row',alignItems:'center',gap:3,backgroundColor:Colors.warningBg,paddingHorizontal:6,paddingVertical:2,borderRadius:6},
+  lowBadgeText:{fontSize:10,fontWeight:'700',color:Colors.warning},
+  expiryText:{fontSize:11,color:Colors.textLight},
+  emptyContainer:{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:60},
+  emptyTitle:{fontSize:18,fontWeight:'600',color:Colors.textDark,marginTop:16,marginBottom:6},
+  emptyText:{fontSize:13,color:Colors.textSecondary,textAlign:'center',marginBottom:20},
+  emptyButton:{flexDirection:'row',alignItems:'center',gap:6,backgroundColor:Colors.primary,paddingHorizontal:20,paddingVertical:12,borderRadius:12},
+  emptyButtonText:{color:Colors.white,fontSize:14,fontWeight:'600'},
+  fab:{position:'absolute',bottom:24,right:24,width:52,height:52,borderRadius:16,backgroundColor:Colors.primary,alignItems:'center',justifyContent:'center',shadowColor:Colors.primary,shadowOpacity:0.3,shadowOffset:{width:0,height:4},shadowRadius:12,elevation:6},
+  loadingOverlay:{position:'absolute',top:0,left:0,right:0,bottom:0,justifyContent:'center',alignItems:'center',zIndex:10},
 });

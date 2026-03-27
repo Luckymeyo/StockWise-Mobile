@@ -1,0 +1,58 @@
+graph TD
+    subgraph AppStartup["App Startup (App.js)"]
+        A([App mount]) --> B[initializeDatabase\ndatabase/index.js singleton]
+        B --> C[createTablesSQL\nschema.js]
+        C --> D[Insert defaultCategories]
+        D --> E[migrateToBatchTracking\nbatchTracking.js]
+        E --> F[initializeNotifications\nNotificationService.js]
+        F --> G[setupDailyChecks\nDailyCheckService.js]
+        G --> H([App ready])
+    end
+
+    subgraph DatabaseLayer["Database Layer (SQLite Singleton)"]
+        DB_A[getDatabase] --> DB_B{Instance\nexists?}
+        DB_B -->|No| DB_C[SQLite.openDatabase\nstockwise.db]
+        DB_B -->|Yes| DB_D[Return existing instance]
+        DB_C --> DB_D
+    end
+
+    subgraph DailyCheckService["DailyCheckService.js"]
+        DCS_A[BackgroundFetch\nminInterval: 720 min\nstopOnTerminate: false\nstartOnBoot: true] --> DCS_B[performDailyChecks]
+        DCS_B --> DCS_C[areNotificationsEnabled\ncheck AsyncStorage]
+        DCS_C --> DCS_D{lowStock\nenabled?}
+        DCS_D -->|Yes| DCS_E[getLowStockProducts]
+        DCS_E --> DCS_F{count?}
+        DCS_F -->|1| DCS_G[sendLowStockAlert individual]
+        DCS_F -->|2-3| DCS_H[sendLowStockAlert per product]
+        DCS_F -->|4+| DCS_I[sendGroupedLowStockAlert]
+        DCS_C --> DCS_J{expiry\nenabled?}
+        DCS_J -->|Yes| DCS_K[getNearExpiryProducts 7 days]
+        DCS_K --> DCS_L[Categorize: critical 0-2d\nurgent 3-5d / soon 6-7d]
+        DCS_L --> DCS_M[sendExpiringAlert or\nsendGroupedExpiringAlert]
+    end
+
+    subgraph NotificationService["NotificationService.js"]
+        NS_A[initializeNotifications] --> NS_B[notifee.createChannel\nstockwise-alerts HIGH importance]
+        NS_A --> NS_C[notifee.createChannel\nstockwise-activity DEFAULT]
+        NS_D[sendLocalNotification] --> NS_E{Permission\ngranted?}
+        NS_E -->|No| NS_F([Skip])
+        NS_E -->|Yes| NS_G[notifee.displayNotification\nchannel: alerts or activity]
+        NS_G --> NS_H[createNotification\nWrite to notifications DB table]
+    end
+
+    subgraph ScreenInteractions["Screen → Database Queries"]
+        SCR_A[HomeScreen] -->|direct import| Q_Products["queries/products.js\ngetAllProducts\ngetLowStockProducts\ngetNearExpiryProducts"]
+        SCR_B[InventoryScreenNew] -->|direct import| Q_Products
+        SCR_C[StockInScreen] -->|direct import| Q_Trans["queries/transactions.js\ncreatStockTransaction"]
+        SCR_D[StockOutScreen] -->|direct import| Q_Trans
+        SCR_D -->|direct import| Q_Batch["batchTracking.js\ngetProductBatches"]
+        SCR_E[ManagementScreen] -->|direct import| Q_Trans2["queries/transactions.js\ngetAllTransactions\ngetTransactionStats"]
+        SCR_F[NotificationsScreen] -->|direct import| Q_Notif["queries/notifications.js\ngetUnreadCount\nmarkAsRead"]
+        SCR_C -->|direct import| Q_Notif2["queries/notifications.js\ncreatNotification"]
+        SCR_D -->|direct import| Q_Notif2
+    end
+
+    DCS_G --> NS_D
+    DCS_H --> NS_D
+    DCS_I --> NS_D
+    DCS_M --> NS_D

@@ -1,7 +1,4 @@
-/**
- * Edit Item Screen
- * Complete form for editing existing products with photo support
- */
+// Edit item screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -20,11 +17,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { unitOptions } from '../database/schema';
 import { getProductById, updateProduct, getAllCategories } from '../database/queries/products';
 import PickerModal from '../components/PickerModal';
 import { createNotification, NotificationTypes } from '../database/queries/notifications';
 import { showImagePickerOptions } from '../services/ImagePickerService';
+import Toast from 'react-native-toast-message';
 
 export default function EditItemScreen({ route, navigation }) {
   const { productId } = route.params;
@@ -57,10 +56,8 @@ export default function EditItemScreen({ route, navigation }) {
   const [categories, setCategories] = useState([]);
 
   // Load product data on mount
-  useEffect(() => {
-    loadProductData();
-    loadCategories();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProductData(); loadCategories(); }, []);
 
   const loadCategories = async () => {
     try {
@@ -182,12 +179,8 @@ export default function EditItemScreen({ route, navigation }) {
         productName: productData.name,
       });
 
-      Alert.alert('Berhasil', 'Produk berhasil diperbarui', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      Toast.show({ type: 'success', text1: 'Berhasil', text2: 'Produk berhasil diperbarui' });
+      navigation.goBack();
     } catch (error) {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'Gagal memperbarui produk: ' + error.message);
@@ -287,7 +280,7 @@ export default function EditItemScreen({ route, navigation }) {
                 style={styles.removePhotoBtn}
                 onPress={removePhoto}
               >
-                <Text style={styles.removePhotoText}>❌ Hapus Foto</Text>
+                <MaterialCommunityIcons name="close-circle" size={14} color={Colors.danger} /><Text style={styles.removePhotoText}>Hapus Foto</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -296,14 +289,14 @@ export default function EditItemScreen({ route, navigation }) {
           <View style={styles.section}>
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.actionBtn} onPress={openCamera}>
-                <Text style={styles.actionIcon}>📷</Text>
+                <MaterialCommunityIcons name="camera" size={24} color={Colors.primary} />
                 <Text style={styles.actionLabel}>
                   {formData.photo_uri ? 'Ganti Foto' : 'Tambah Foto'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtn} onPress={openBarcodeScanner}>
-                <Text style={styles.actionIcon}>📱</Text>
+                <MaterialCommunityIcons name="barcode-scan" size={24} color={Colors.primary} />
                 <Text style={styles.actionLabel}>Scan Barcode</Text>
               </TouchableOpacity>
             </View>
@@ -311,7 +304,7 @@ export default function EditItemScreen({ route, navigation }) {
 
           {/* Info Produk */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📦 INFO PRODUK</Text>
+            <Text style={styles.sectionTitle}>Info Produk</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
@@ -320,7 +313,7 @@ export default function EditItemScreen({ route, navigation }) {
               <TextInput
                 style={[styles.input, errors.name && styles.inputError]}
                 placeholder="Contoh: Indomie Goreng"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.name}
                 onChangeText={(text) => handleChange('name', text)}
               />
@@ -332,7 +325,7 @@ export default function EditItemScreen({ route, navigation }) {
               <TextInput
                 style={styles.input}
                 placeholder="Stock Keeping Unit (opsional)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.sku}
                 onChangeText={(text) => handleChange('sku', text)}
               />
@@ -344,7 +337,7 @@ export default function EditItemScreen({ route, navigation }) {
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Scan atau input manual"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.barcode}
                   onChangeText={(text) => handleChange('barcode', text)}
                   keyboardType="numeric"
@@ -378,7 +371,7 @@ export default function EditItemScreen({ route, navigation }) {
 
           {/* Harga & Stok */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💰 HARGA & STOK</Text>
+            <Text style={styles.sectionTitle}>Harga & Stok</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Harga Beli</Text>
@@ -391,7 +384,7 @@ export default function EditItemScreen({ route, navigation }) {
                     errors.purchase_price && styles.inputError
                   ]}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.purchase_price}
                   onChangeText={(text) => handleChange('purchase_price', text.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
@@ -413,7 +406,7 @@ export default function EditItemScreen({ route, navigation }) {
                     errors.selling_price && styles.inputError
                   ]}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.selling_price}
                   onChangeText={(text) => handleChange('selling_price', text.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
@@ -430,7 +423,7 @@ export default function EditItemScreen({ route, navigation }) {
                 <TextInput
                   style={styles.input}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.current_stock}
                   onChangeText={(text) => handleChange('current_stock', text.replace(/[^0-9.]/g, ''))}
                   keyboardType="numeric"
@@ -460,14 +453,14 @@ export default function EditItemScreen({ route, navigation }) {
 
           {/* Peringatan */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⚠️ PERINGATAN</Text>
+            <Text style={styles.sectionTitle}>Peringatan</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Minimum Stok (Alert)</Text>
               <TextInput
                 style={[styles.input, errors.min_stock_threshold && styles.inputError]}
                 placeholder="Contoh: 10"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.min_stock_threshold}
                 onChangeText={(text) => handleChange('min_stock_threshold', text.replace(/[^0-9]/g, ''))}
                 keyboardType="numeric"
@@ -488,7 +481,7 @@ export default function EditItemScreen({ route, navigation }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.datePickerContent}>
-                  <Text style={styles.datePickerIcon}>📅</Text>
+                  <MaterialCommunityIcons name="calendar" size={20} color={Colors.primary} />
                   <Text style={[styles.datePickerText, formData.expiry_date && styles.datePickerTextSelected]}>
                     {formData.expiry_date ? formatDisplayDate(formData.expiry_date) : 'Ketuk untuk pilih tanggal'}
                   </Text>
@@ -510,13 +503,13 @@ export default function EditItemScreen({ route, navigation }) {
 
           {/* Catatan */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📝 CATATAN</Text>
+            <Text style={styles.sectionTitle}>Catatan</Text>
 
             <View style={styles.inputGroup}>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Catatan tambahan (opsional)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.description}
                 onChangeText={(text) => handleChange('description', text)}
                 multiline
@@ -623,17 +616,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
   },
   removePhotoBtn: {
     marginTop: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.dangerLight,
     borderRadius: 8,
   },
   removePhotoText: {
-    color: '#DC2626',
+    color: Colors.danger,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -655,7 +648,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 20,
     alignItems: 'center',
@@ -680,12 +673,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: {
-    color: '#EF4444',
+    color: Colors.danger,
   },
   input: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.bg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -693,10 +686,10 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: Colors.danger,
   },
   errorText: {
-    color: '#EF4444',
+    color: Colors.danger,
     fontSize: 12,
     marginTop: 4,
   },
@@ -715,7 +708,7 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: 10,
   },
   clearIcon: {
@@ -723,9 +716,9 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
   },
   pickerButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.bg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -760,7 +753,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   datePickerButton: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -799,7 +792,7 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -811,7 +804,7 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     flex: 1,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

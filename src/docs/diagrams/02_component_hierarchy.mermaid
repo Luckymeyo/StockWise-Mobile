@@ -1,0 +1,67 @@
+graph TD
+    App["App.js\n(NavigationContainer)"]
+    App --> AppNavigator
+
+    AppNavigator["AppNavigator\n(Bottom Tab Navigator)"]
+    AppNavigator --> HomeTab
+    AppNavigator --> InventoryTab
+    AppNavigator --> ManagementTab
+    AppNavigator --> ToastComponent["Toast\n(react-native-toast-message)"]
+
+    HomeTab["HomeTab\n(Stack Navigator)"]
+    HomeTab --> HomeScreen
+    HomeTab --> SettingsScreen
+    HomeTab --> NotificationsScreen
+    HomeTab --> HelpScreen
+
+    InventoryTab["InventoryTab\n(Stack Navigator)"]
+    InventoryTab --> InventoryScreenNew
+    InventoryTab --> ItemDetailScreen
+    InventoryTab --> StockInScreen
+    InventoryTab --> StockOutScreen
+    InventoryTab --> AddItemScreen
+    InventoryTab --> EditItemScreen
+    InventoryTab --> BarcodeScannerScreen
+    InventoryTab --> BarcodeLabelScreen
+    InventoryTab --> ExpiringBatchesScreen
+
+    ManagementTab["ManagementTab\n(Stack Navigator)"]
+    ManagementTab --> ManagementScreen
+    ManagementTab --> FinancialAnalysisScreen
+
+    HomeScreen["HomeScreen\n(Dashboard)"]
+    HomeScreen --> StatCard["StatCard\n(x4 stat cards)"]
+    HomeScreen --> CommonComponents["CommonComponents\n(shared UI)"]
+
+    InventoryScreenNew["InventoryScreenNew\n(Product List)"]
+    InventoryScreenNew --> FlatList_Inventory["FlatList\n(product cards)"]
+    InventoryScreenNew --> SearchInput["TextInput\n(debounced search)"]
+    InventoryScreenNew --> FilterButtons["Filter Buttons\n(All/Low/Expiry)"]
+
+    ItemDetailScreen["ItemDetailScreen\n(Product Detail)"]
+    ItemDetailScreen --> ActionGrid["Quick Actions Grid\n(StockIn/Out/Edit/Delete)"]
+
+    AddItemScreen["AddItemScreen\n(Add Product Form)"]
+    AddItemScreen --> PickerModal["PickerModal\n(category/unit picker)"]
+    AddItemScreen --> DateTimePicker_Add["DateTimePicker\n(expiry date)"]
+
+    EditItemScreen["EditItemScreen\n(Edit Product Form)"]
+    EditItemScreen --> PickerModal
+    EditItemScreen --> DateTimePicker_Edit["DateTimePicker\n(expiry date)"]
+
+    StockInScreen["StockInScreen\n(Stock In Form)"]
+    StockInScreen --> BatchTrackingToggle["Batch Tracking\n(toggle + fields)"]
+    StockInScreen --> PreviewCard_In["Preview Card\n(before/after stock)"]
+
+    StockOutScreen["StockOutScreen\n(Stock Out Form)"]
+    StockOutScreen --> ReasonSelector["Reason Selector\n(Terjual/Rusak/etc)"]
+    StockOutScreen --> PreviewCard_Out["Preview Card\n(before/after stock)"]
+
+    ManagementScreen["ManagementScreen\n(History + Stats)"]
+    ManagementScreen --> TransactionList["FlatList\n(transaction history)"]
+    ManagementScreen --> DateFilter["Date Range Filter"]
+
+    FinancialAnalysisScreen["FinancialAnalysisScreen\n(Revenue/Profit Charts)"]
+
+    SettingsScreen["SettingsScreen\n(App Settings)"]
+    SettingsScreen --> ExportModal["Export Modal\n(CSV/HTML)"]

@@ -1,0 +1,61 @@
+graph LR
+    subgraph Tabs["Bottom Tab Navigation"]
+        HomeTab["Beranda Tab"]
+        InventoryTab["Inventori Tab"]
+        ManagementTab["Riwayat Tab"]
+    end
+
+    subgraph HomeStack["Home Stack"]
+        HomeScreen["HomeScreen\n(Dashboard)"]
+        SettingsScreen["SettingsScreen"]
+        NotificationsScreen["NotificationsScreen"]
+        HelpScreen["HelpScreen"]
+    end
+
+    subgraph InventoryStack["Inventory Stack"]
+        InventoryMain["InventoryScreenNew\n(Product List)"]
+        ItemDetail["ItemDetailScreen"]
+        StockIn["StockInScreen\npresentation: card"]
+        StockOut["StockOutScreen\npresentation: card"]
+        ExpiringBatches["ExpiringBatchesScreen\npresentation: card"]
+        AddItem["AddItemScreen\npresentation: card"]
+        EditItem["EditItemScreen\npresentation: card"]
+        BarcodeScanner["BarcodeScannerScreen\npresentation: fullScreenModal"]
+        BarcodeLabel["BarcodeLabelScreen\npresentation: card"]
+    end
+
+    subgraph ManagementStack["Management Stack"]
+        ManagementMain["ManagementScreen\n(History + Stats)"]
+        FinancialAnalysis["FinancialAnalysisScreen\npresentation: card"]
+    end
+
+    HomeTab --> HomeScreen
+    InventoryTab --> InventoryMain
+    ManagementTab --> ManagementMain
+
+    HomeScreen -->|"navigate Settings"| SettingsScreen
+    HomeScreen -->|"navigate Notifications"| NotificationsScreen
+    HomeScreen -->|"navigate Help"| HelpScreen
+    HomeScreen -->|"navigate Inventory tab"| InventoryMain
+
+    InventoryMain -->|"tap product"| ItemDetail
+    InventoryMain -->|"tap add"| AddItem
+
+    ItemDetail -->|"tap StockIn"| StockIn
+    ItemDetail -->|"tap StockOut"| StockOut
+    ItemDetail -->|"tap Edit"| EditItem
+    ItemDetail -->|"tap Expiring"| ExpiringBatches
+    ItemDetail -->|"tap BarcodeLabel"| BarcodeLabel
+
+    AddItem -->|"tap Scan"| BarcodeScanner
+    EditItem -->|"tap Scan"| BarcodeScanner
+    BarcodeScanner -.->|"onScan callback → goBack"| AddItem
+    BarcodeScanner -.->|"onScan callback → goBack"| EditItem
+
+    StockIn -->|"goBack on success"| ItemDetail
+    StockOut -->|"goBack on success"| ItemDetail
+    AddItem -->|"goBack on success"| InventoryMain
+    EditItem -->|"goBack on success"| ItemDetail
+
+    ManagementMain -->|"navigate FinancialAnalysis"| FinancialAnalysis
+    ManagementMain -->|"navigate Settings"| SettingsScreen

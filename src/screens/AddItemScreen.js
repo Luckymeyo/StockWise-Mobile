@@ -1,7 +1,4 @@
-/**
- * Add New Item Screen
- * Complete form for adding products with barcode scanning and photo
- */
+// Add new item screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -19,14 +16,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { unitOptions } from '../database/schema';
 import { createProduct, getAllCategories } from '../database/queries/products';
 import PickerModal from '../components/PickerModal';
 import { createNotification, NotificationTypes } from '../database/queries/notifications';
 import { showImagePickerOptions } from '../services/ImagePickerService';
+import Toast from 'react-native-toast-message';
 
 export default function AddItemScreen({ navigation }) {
-  // Form state
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -47,12 +45,11 @@ export default function AddItemScreen({ navigation }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Picker states
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [categories, setCategories] = useState([]);
 
-  // Load categories on mount
+  // Load categories
   useEffect(() => {
     loadCategories();
   }, []);
@@ -66,10 +63,9 @@ export default function AddItemScreen({ navigation }) {
     }
   };
 
-  // Handle input change
+  // Handle input changes
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -83,27 +79,22 @@ export default function AddItemScreen({ navigation }) {
       newErrors.name = 'Nama produk wajib diisi';
     }
 
-    // Validate purchase price is not negative
     if (formData.purchase_price && parseFloat(formData.purchase_price) < 0) {
       newErrors.purchase_price = 'Harga beli tidak boleh negatif';
     }
 
-    // Validate selling price is not negative
     if (formData.selling_price && parseFloat(formData.selling_price) < 0) {
       newErrors.selling_price = 'Harga jual tidak boleh negatif';
     }
 
-    // Validate selling price is not lower than purchase price
     if (formData.selling_price && parseFloat(formData.selling_price) < parseFloat(formData.purchase_price)) {
       newErrors.selling_price = 'Harga jual tidak boleh lebih rendah dari harga beli';
     }
 
-    // Validate current stock is not negative
     if (formData.current_stock && parseFloat(formData.current_stock) < 0) {
       newErrors.current_stock = 'Stok tidak boleh negatif';
     }
 
-    // Validate minimum stock threshold is not negative
     if (formData.min_stock_threshold && parseFloat(formData.min_stock_threshold) < 0) {
       newErrors.min_stock_threshold = 'Minimum stok tidak boleh negatif';
     }
@@ -133,13 +124,12 @@ export default function AddItemScreen({ navigation }) {
 
       await createProduct(productData);
 
-      // Create notification for new product
       await createNotification(NotificationTypes.PRODUCT_ADDED, {
         productId: null,
         productName: productData.name,
       });
 
-      // Check if product is low stock immediately
+      // Check if low stock immediately
       const currentStock = parseFloat(formData.current_stock) || 0;
       const minThreshold = parseFloat(formData.min_stock_threshold) || 0;
       if (minThreshold > 0 && currentStock <= minThreshold) {
@@ -151,12 +141,8 @@ export default function AddItemScreen({ navigation }) {
         });
       }
 
-      Alert.alert('Berhasil', 'Produk berhasil ditambahkan', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      Toast.show({ type: 'success', text1: 'Berhasil', text2: 'Produk berhasil ditambahkan' });
+      navigation.goBack();
     } catch (error) {
       console.error('Error saving product:', error);
       Alert.alert('Error', 'Gagal menyimpan produk: ' + error.message);
@@ -174,7 +160,7 @@ export default function AddItemScreen({ navigation }) {
     });
   };
 
-  // Open camera for photo - NOW FUNCTIONAL!
+  // Open camera
   const openCamera = () => {
     showImagePickerOptions((photoUri) => {
       handleChange('photo_uri', photoUri);
@@ -186,20 +172,19 @@ export default function AddItemScreen({ navigation }) {
     handleChange('photo_uri', null);
   };
 
-  // Format date display
+  // Format date for display
   const formatDisplayDate = (dateString) => {
     if (!dateString) return '';
     const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   };
 
-  // Handle date change
+  // Handle date changes
   const handleDateChange = (event, date) => {
     setShowDatePicker(Platform.OS === 'ios');
     
     if (date) {
       setSelectedDate(date);
-      // Format date as YYYY-MM-DD
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
@@ -210,7 +195,6 @@ export default function AddItemScreen({ navigation }) {
 
   // Open date picker
   const openDatePicker = () => {
-    // If there's already a date set, use it, otherwise use today
     if (formData.expiry_date) {
       const [year, month, day] = formData.expiry_date.split('-');
       setSelectedDate(new Date(year, month - 1, day));
@@ -247,7 +231,7 @@ export default function AddItemScreen({ navigation }) {
                 style={styles.removePhotoBtn}
                 onPress={removePhoto}
               >
-                <Text style={styles.removePhotoText}>❌ Hapus Foto</Text>
+                <MaterialCommunityIcons name="close-circle" size={14} color={Colors.danger} /><Text style={styles.removePhotoText}>Hapus Foto</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -256,14 +240,14 @@ export default function AddItemScreen({ navigation }) {
           <View style={styles.section}>
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.actionBtn} onPress={openCamera}>
-                <Text style={styles.actionIcon}>📷</Text>
+                <MaterialCommunityIcons name="camera" size={24} color={Colors.primary} />
                 <Text style={styles.actionLabel}>
                   {formData.photo_uri ? 'Ganti Foto' : 'Foto Produk'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtn} onPress={openBarcodeScanner}>
-                <Text style={styles.actionIcon}>📱</Text>
+                <MaterialCommunityIcons name="barcode-scan" size={24} color={Colors.primary} />
                 <Text style={styles.actionLabel}>Scan Barcode</Text>
               </TouchableOpacity>
             </View>
@@ -271,7 +255,7 @@ export default function AddItemScreen({ navigation }) {
 
           {/* Info Produk */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📦 INFO PRODUK</Text>
+            <Text style={styles.sectionTitle}>Info Produk</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
@@ -280,7 +264,7 @@ export default function AddItemScreen({ navigation }) {
               <TextInput
                 style={[styles.input, errors.name && styles.inputError]}
                 placeholder="Contoh: Indomie Goreng"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.name}
                 onChangeText={(text) => handleChange('name', text)}
               />
@@ -292,7 +276,7 @@ export default function AddItemScreen({ navigation }) {
               <TextInput
                 style={styles.input}
                 placeholder="Stock Keeping Unit (opsional)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.sku}
                 onChangeText={(text) => handleChange('sku', text)}
               />
@@ -304,7 +288,7 @@ export default function AddItemScreen({ navigation }) {
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Scan atau input manual"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.barcode}
                   onChangeText={(text) => handleChange('barcode', text)}
                   keyboardType="numeric"
@@ -338,7 +322,7 @@ export default function AddItemScreen({ navigation }) {
 
           {/* Harga & Stok */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💰 HARGA & STOK</Text>
+            <Text style={styles.sectionTitle}>Harga & Stok</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Harga Beli</Text>
@@ -351,7 +335,7 @@ export default function AddItemScreen({ navigation }) {
                     errors.purchase_price && styles.inputError
                   ]}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.purchase_price}
                   onChangeText={(text) => handleChange('purchase_price', text.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
@@ -373,7 +357,7 @@ export default function AddItemScreen({ navigation }) {
                     errors.selling_price && styles.inputError
                   ]}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.selling_price}
                   onChangeText={(text) => handleChange('selling_price', text.replace(/[^0-9]/g, ''))}
                   keyboardType="numeric"
@@ -390,7 +374,7 @@ export default function AddItemScreen({ navigation }) {
                 <TextInput
                   style={[styles.input, errors.current_stock && styles.inputError]}
                   placeholder="0"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={Colors.textLight}
                   value={formData.current_stock}
                   onChangeText={(text) => handleChange('current_stock', text.replace(/[^0-9.]/g, ''))}
                   keyboardType="numeric"
@@ -419,14 +403,14 @@ export default function AddItemScreen({ navigation }) {
 
           {/* Peringatan */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⚠️ PERINGATAN</Text>
+            <Text style={styles.sectionTitle}>Peringatan</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Minimum Stok (Alert)</Text>
               <TextInput
                 style={[styles.input, errors.min_stock_threshold && styles.inputError]}
                 placeholder="Contoh: 10"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.min_stock_threshold}
                 onChangeText={(text) => handleChange('min_stock_threshold', text.replace(/[^0-9]/g, ''))}
                 keyboardType="numeric"
@@ -447,7 +431,7 @@ export default function AddItemScreen({ navigation }) {
                 activeOpacity={0.7}
               >
                 <View style={styles.datePickerContent}>
-                  <Text style={styles.datePickerIcon}>📅</Text>
+                  <MaterialCommunityIcons name="calendar" size={20} color={Colors.primary} />
                   <Text style={[styles.datePickerText, formData.expiry_date && styles.datePickerTextSelected]}>
                     {formData.expiry_date ? formatDisplayDate(formData.expiry_date) : 'Ketuk untuk pilih tanggal'}
                   </Text>
@@ -470,13 +454,13 @@ export default function AddItemScreen({ navigation }) {
 
           {/* Catatan */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📝 CATATAN</Text>
+            <Text style={styles.sectionTitle}>Catatan</Text>
 
             <View style={styles.inputGroup}>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Catatan tambahan (opsional)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={Colors.textLight}
                 value={formData.description}
                 onChangeText={(text) => handleChange('description', text)}
                 multiline
@@ -574,17 +558,17 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 200,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
   },
   removePhotoBtn: {
     marginTop: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.dangerLight,
     borderRadius: 8,
   },
   removePhotoText: {
-    color: '#DC2626',
+    color: Colors.danger,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -606,7 +590,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 20,
     alignItems: 'center',
@@ -631,12 +615,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   required: {
-    color: '#EF4444',
+    color: Colors.danger,
   },
   input: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.bg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -644,10 +628,10 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: Colors.danger,
   },
   errorText: {
-    color: '#EF4444',
+    color: Colors.danger,
     fontSize: 12,
     marginTop: 4,
   },
@@ -666,7 +650,7 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: 10,
   },
   clearIcon: {
@@ -674,9 +658,9 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
   },
   pickerButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Colors.bg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -711,7 +695,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   datePickerButton: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -750,7 +734,7 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -762,7 +746,7 @@ const styles = StyleSheet.create({
   },
   saveBtn: {
     flex: 1,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',

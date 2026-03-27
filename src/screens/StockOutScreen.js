@@ -1,7 +1,4 @@
-/**
- * Stock Out Screen
- * Remove stock from products (sales, waste, expired)
- */
+// Stock out screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -18,9 +15,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getProductById } from '../database/queries/products';
 import { createStockTransaction } from '../database/queries/transactions';
 import { createNotification, NotificationTypes } from '../database/queries/notifications';
+import { getProductBatches } from '../database/batchTracking';
+import Toast from 'react-native-toast-message';
 
 export default function StockOutScreen({ route, navigation }) {
   const { productId } = route.params;
@@ -32,16 +32,15 @@ export default function StockOutScreen({ route, navigation }) {
   const [saving, setSaving] = useState(false);
 
   const reasons = [
-    { value: 'Terjual', label: '💰 Terjual', color: '#10B981' },
-    { value: 'Rusak', label: '💔 Rusak', color: '#F59E0B' },
-    { value: 'Kadaluarsa', label: '⏰ Kadaluarsa', color: '#EF4444' },
-    { value: 'Hilang', label: '❓ Hilang', color: '#6B7280' },
-    { value: 'Lainnya', label: '📝 Lainnya', color: '#6B7280' },
+    { value: 'Terjual', label: 'Terjual', color: Colors.success },
+    { value: 'Rusak', label: '💔 Rusak', color: Colors.warning },
+    { value: 'Kadaluarsa', label: 'Kadaluarsa', color: Colors.danger },
+    { value: 'Hilang', label: 'Hilang', color: Colors.textSecondary },
+    { value: 'Lainnya', label: 'Lainnya', color: Colors.textSecondary },
   ];
 
-  useEffect(() => {
-    loadProduct();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProduct(); }, []);
 
   const loadProduct = async () => {
     try {
@@ -87,13 +86,38 @@ export default function StockOutScreen({ route, navigation }) {
 
       const transactionNotes = `${reason}${notes ? ` - ${notes}` : ''}`;
 
-      await createStockTransaction(
-        productId,
-        'OUT',
-        qty,
-        transactionNotes,
-        null
-      );
+      // FIFO: check if there are tracked batches for this product.
+      // If so, deduct from oldest-expiry batches first; otherwise fall back
+      // to a single un-batched OUT transaction.
+      const batches = await getProductBatches(productId);
+
+      if (batches && batches.length > 0) {
+        // Deduct across batches ordered by expiry date ascending (oldest first)
+        let remaining = qty;
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const deduct = Math.min(remaining, batch.current_quantity);
+          remaining -= deduct;
+          await createStockTransaction(
+            productId,
+            'OUT',
+            deduct,
+            transactionNotes,
+            null,
+            batch.batch_number,
+            batch.batch_expiry_date
+          );
+        }
+      } else {
+        // No batch tracking — single OUT transaction
+        await createStockTransaction(
+          productId,
+          'OUT',
+          qty,
+          transactionNotes,
+          null
+        );
+      }
 
       // Create notification for stock out
       await createNotification(NotificationTypes.STOCK_OUT, {
@@ -114,18 +138,8 @@ export default function StockOutScreen({ route, navigation }) {
         });
       }
 
-      Alert.alert(
-        'Berhasil',
-        `Stok berhasil dikurangi!\n\n${product.name}\n-${qty} ${product.unit}\nAlasan: ${reason}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.goBack();
-            },
-          },
-        ]
-      );
+      Toast.show({ type: 'success', text1: 'Berhasil', text2: `${product.name} -${qty} ${product.unit}` });
+      navigation.goBack();
     } catch (error) {
       console.error('Error saving stock out:', error);
       Alert.alert('Error', error.message || 'Gagal mengurangi stok');
@@ -157,7 +171,7 @@ export default function StockOutScreen({ route, navigation }) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.cardBlue} />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Memuat...</Text>
         </View>
       </SafeAreaView>
@@ -191,7 +205,7 @@ export default function StockOutScreen({ route, navigation }) {
               onPress={() => navigation.goBack()}
               style={styles.backButton}
             >
-              <Text style={styles.backButtonText}>← Kembali</Text>
+              <MaterialCommunityIcons name="arrow-left" size={18} color={Colors.textDark} />
             </TouchableOpacity>
             <Text style={styles.title}>Stok Keluar</Text>
             <Text style={styles.subtitle}>Kurangi stok produk</Text>
@@ -199,7 +213,7 @@ export default function StockOutScreen({ route, navigation }) {
 
           {/* Product Info Card */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📦 Produk</Text>
+            <Text style={styles.sectionLabel}>Produk</Text>
             <View style={styles.productCard}>
               <View style={styles.productHeader}>
                 <Text style={styles.productName}>{product.name}</Text>
@@ -241,7 +255,7 @@ export default function StockOutScreen({ route, navigation }) {
 
           {/* Reason Selector */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>🏷️ Alasan Stok Keluar</Text>
+            <Text style={styles.sectionLabel}>Alasan Stok Keluar</Text>
             <View style={styles.reasonGrid}>
               {reasons.map((item) => (
                 <TouchableOpacity
@@ -289,7 +303,7 @@ export default function StockOutScreen({ route, navigation }) {
             </View>
             {insufficient ? (
               <Text style={styles.inputError}>
-                ⚠️ Stok tidak mencukupi! Tersedia: {product.current_stock}{' '}
+                Stok tidak mencukupi! Tersedia: {product.current_stock}{' '}
                 {product.unit}
               </Text>
             ) : (
@@ -302,7 +316,7 @@ export default function StockOutScreen({ route, navigation }) {
           {/* Stock Preview */}
           {showPreview && (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>📊 Pratinjau</Text>
+              <Text style={styles.sectionLabel}>Pratinjau</Text>
               <View
                 style={[
                   styles.previewCard,
@@ -354,7 +368,7 @@ export default function StockOutScreen({ route, navigation }) {
                 {insufficient && (
                   <View style={styles.warningBox}>
                     <Text style={styles.warningText}>
-                      ⚠️ Jumlah melebihi stok yang tersedia
+                      Jumlah melebihi stok yang tersedia
                     </Text>
                   </View>
                 )}
@@ -364,7 +378,7 @@ export default function StockOutScreen({ route, navigation }) {
 
           {/* Notes */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📝 Catatan Tambahan (Opsional)</Text>
+            <Text style={styles.sectionLabel}>Catatan Tambahan (Opsional)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
@@ -390,7 +404,7 @@ export default function StockOutScreen({ route, navigation }) {
               disabled={saving || !showPreview || insufficient}
             >
               {saving ? (
-                <ActivityIndicator color={Colors.white} />
+                <ActivityIndicator color={Colors.textDark} />
               ) : (
                 <Text style={styles.saveButtonText}>✓ Simpan Stok Keluar</Text>
               )}
@@ -445,7 +459,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: Colors.cardBlue,
+    color: Colors.primary,
     fontWeight: '600',
   },
   title: {
@@ -476,7 +490,7 @@ const styles = StyleSheet.create({
   productCard: {
     padding: 16,
     backgroundColor: Colors.bg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.divider,
   },
@@ -526,7 +540,7 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   stockValueLow: {
-    color: '#EF4444',
+    color: Colors.danger,
   },
   stockValueSmall: {
     fontSize: 16,
@@ -549,7 +563,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   reasonButtonActive: {
-    backgroundColor: '#FEF3F2',
+    backgroundColor: Colors.dangerBg,
     borderWidth: 2,
   },
   reasonText: {
@@ -566,14 +580,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: Colors.danger,
     borderRadius: 12,
     backgroundColor: Colors.white,
     paddingRight: 16,
   },
   inputContainerError: {
-    borderColor: '#DC2626',
-    backgroundColor: '#FEF2F2',
+    borderColor: Colors.danger,
+    backgroundColor: Colors.dangerBg,
   },
   input: {
     flex: 1,
@@ -603,21 +617,21 @@ const styles = StyleSheet.create({
   inputError: {
     marginTop: 8,
     fontSize: 13,
-    color: '#EF4444',
+    color: Colors.danger,
     fontWeight: '600',
   },
 
   // Preview
   previewCard: {
     padding: 20,
-    backgroundColor: '#FEF3F2',
-    borderRadius: 12,
+    backgroundColor: Colors.dangerBg,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: Colors.danger,
   },
   previewCardError: {
     backgroundColor: '#FEE',
-    borderColor: '#DC2626',
+    borderColor: Colors.danger,
   },
   previewRow: {
     flexDirection: 'row',
@@ -630,7 +644,7 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontSize: 12,
-    color: '#B91C1C',
+    color: Colors.danger,
     marginBottom: 8,
     fontWeight: '600',
   },
@@ -642,10 +656,10 @@ const styles = StyleSheet.create({
   previewValueAfter: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#EF4444',
+    color: Colors.danger,
   },
   previewValueAfterError: {
-    color: '#DC2626',
+    color: Colors.danger,
   },
   previewUnit: {
     fontSize: 14,
@@ -658,30 +672,30 @@ const styles = StyleSheet.create({
   },
   previewArrowText: {
     fontSize: 32,
-    color: '#EF4444',
+    color: Colors.danger,
     fontWeight: '700',
   },
   previewArrowTextError: {
-    color: '#DC2626',
+    color: Colors.danger,
   },
   previewArrowLabel: {
     fontSize: 13,
-    color: '#B91C1C',
+    color: Colors.danger,
     fontWeight: '600',
     marginTop: 4,
   },
   previewArrowLabelError: {
-    color: '#DC2626',
+    color: Colors.danger,
   },
   warningBox: {
     marginTop: 16,
     padding: 12,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.dangerLight,
     borderRadius: 8,
   },
   warningText: {
     fontSize: 14,
-    color: '#DC2626',
+    color: Colors.danger,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -692,7 +706,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     padding: 18,
-    backgroundColor: '#EF4444',
+    backgroundColor: Colors.danger,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,

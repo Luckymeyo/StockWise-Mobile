@@ -1,7 +1,4 @@
-/**
- * Stock In Screen
- * Add stock to existing products
- */
+// Stock in screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -19,9 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getProductById } from '../database/queries/products';
 import { createStockTransaction } from '../database/queries/transactions';
 import { createNotification, NotificationTypes } from '../database/queries/notifications';
+import Toast from 'react-native-toast-message';
 
 export default function StockInScreen({ route, navigation }) {
   const { productId } = route.params;
@@ -37,9 +36,8 @@ export default function StockInScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadProduct();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProduct(); }, []);
 
   const loadProduct = async () => {
     try {
@@ -111,19 +109,8 @@ export default function StockInScreen({ route, navigation }) {
           )}`
         : '';
 
-      Alert.alert(
-        'Berhasil',
-        `Stok berhasil ditambahkan!\n\n${product.name}\n+${qty} ${product.unit}${batchInfo}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Go back and refresh the previous screen
-              navigation.goBack();
-            },
-          },
-        ]
-      );
+      Toast.show({ type: 'success', text1: 'Berhasil', text2: `${product.name} +${qty} ${product.unit}` });
+      navigation.goBack();
     } catch (error) {
       console.error('Error saving stock in:', error);
       Alert.alert('Error', error.message || 'Gagal menambah stok');
@@ -177,7 +164,7 @@ export default function StockInScreen({ route, navigation }) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.cardBlue} />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Memuat...</Text>
         </View>
       </SafeAreaView>
@@ -209,7 +196,7 @@ export default function StockInScreen({ route, navigation }) {
               onPress={() => navigation.goBack()}
               style={styles.backButton}
             >
-              <Text style={styles.backButtonText}>← Kembali</Text>
+              <MaterialCommunityIcons name="arrow-left" size={18} color={Colors.textDark} />
             </TouchableOpacity>
             <Text style={styles.title}>Stok Masuk</Text>
             <Text style={styles.subtitle}>Tambah stok produk</Text>
@@ -217,7 +204,7 @@ export default function StockInScreen({ route, navigation }) {
 
           {/* Product Info Card */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📦 Produk</Text>
+            <Text style={styles.sectionLabel}>Produk</Text>
             <View style={styles.productCard}>
               <View style={styles.productHeader}>
                 <Text style={styles.productName}>{product.name}</Text>
@@ -253,7 +240,7 @@ export default function StockInScreen({ route, navigation }) {
 
           {/* Quantity Input */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>➕ Jumlah Stok Masuk</Text>
+            <Text style={styles.sectionLabel}>Jumlah Stok Masuk</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -274,7 +261,7 @@ export default function StockInScreen({ route, navigation }) {
           {/* Stock Preview */}
           {showPreview && (
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>📊 Pratinjau</Text>
+              <Text style={styles.sectionLabel}>Pratinjau</Text>
               <View style={styles.previewCard}>
                 <View style={styles.previewRow}>
                   <View style={styles.previewItem}>
@@ -306,7 +293,7 @@ export default function StockInScreen({ route, navigation }) {
 
           {/* Reference Number (Optional) */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>🔢 No. Referensi (Opsional)</Text>
+            <Text style={styles.sectionLabel}>No. Referensi (Opsional)</Text>
             <TextInput
               style={styles.input}
               value={referenceNo}
@@ -324,7 +311,7 @@ export default function StockInScreen({ route, navigation }) {
           <View style={styles.section}>
             <View style={styles.batchToggle}>
               <View style={styles.batchToggleLeft}>
-                <Text style={styles.sectionLabel}>📦 Lacak Batch & Kadaluarsa</Text>
+                <Text style={styles.sectionLabel}>Lacak Batch & Kadaluarsa</Text>
                 <Text style={styles.batchToggleHint}>
                   Aktifkan untuk melacak tanggal kadaluarsa per batch
                 </Text>
@@ -369,7 +356,7 @@ export default function StockInScreen({ route, navigation }) {
                     activeOpacity={0.7}
                   >
                     <View style={styles.datePickerContent}>
-                      <Text style={styles.batchDatePickerIcon}>📅</Text>
+                      <MaterialCommunityIcons name="calendar" size={20} color={Colors.primary} />
                       <Text style={[styles.batchDatePickerText, batchExpiryDate && styles.batchDatePickerTextSelected]}>
                         {batchExpiryDate ? formatDisplayDate(batchExpiryDate) : 'Ketuk untuk pilih tanggal'}
                       </Text>
@@ -391,7 +378,7 @@ export default function StockInScreen({ route, navigation }) {
                 {batchExpiryDate && (
                   <View style={styles.expiryPreview}>
                     <Text style={styles.expiryPreviewLabel}>
-                      ✅ Dipilih: {formatDisplayDate(batchExpiryDate)}
+                      Dipilih: {formatDisplayDate(batchExpiryDate)}
                     </Text>
                   </View>
                 )}
@@ -401,7 +388,7 @@ export default function StockInScreen({ route, navigation }) {
 
           {/* Notes */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>📝 Catatan (Opsional)</Text>
+            <Text style={styles.sectionLabel}>Catatan (Opsional)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={notes}
@@ -426,7 +413,7 @@ export default function StockInScreen({ route, navigation }) {
               disabled={saving || !showPreview}
             >
               {saving ? (
-                <ActivityIndicator color={Colors.white} />
+                <ActivityIndicator color={Colors.textDark} />
               ) : (
                 <Text style={styles.saveButtonText}>✓ Simpan Stok Masuk</Text>
               )}
@@ -481,7 +468,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: Colors.cardBlue,
+    color: Colors.primary,
     fontWeight: '600',
   },
   title: {
@@ -512,7 +499,7 @@ const styles = StyleSheet.create({
   productCard: {
     padding: 16,
     backgroundColor: Colors.bg,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.divider,
   },
@@ -572,7 +559,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: Colors.cardBlue,
+    borderColor: Colors.primary,
     borderRadius: 12,
     backgroundColor: Colors.white,
     paddingRight: 16,
@@ -606,10 +593,10 @@ const styles = StyleSheet.create({
   // Preview
   previewCard: {
     padding: 20,
-    backgroundColor: '#E8F5E9',
-    borderRadius: 12,
+    backgroundColor: Colors.successLight,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: Colors.success,
   },
   previewRow: {
     flexDirection: 'row',
@@ -622,7 +609,7 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontSize: 12,
-    color: '#059669',
+    color: Colors.success,
     marginBottom: 8,
     fontWeight: '600',
   },
@@ -634,7 +621,7 @@ const styles = StyleSheet.create({
   previewValueAfter: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#10B981',
+    color: Colors.success,
   },
   previewUnit: {
     fontSize: 14,
@@ -647,12 +634,12 @@ const styles = StyleSheet.create({
   },
   previewArrowText: {
     fontSize: 32,
-    color: '#10B981',
+    color: Colors.success,
     fontWeight: '700',
   },
   previewArrowLabel: {
     fontSize: 13,
-    color: '#059669',
+    color: Colors.success,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -663,7 +650,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     padding: 18,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
@@ -716,7 +703,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toggleActive: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
   },
   toggleThumb: {
     width: 26,
@@ -742,7 +729,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   expiryPreview: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: Colors.successLight,
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
@@ -750,12 +737,12 @@ const styles = StyleSheet.create({
   expiryPreviewLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10B981',
+    color: Colors.success,
   },
 
   // Batch Date Picker Button - Enhanced styling
   batchDatePickerButton: {
-    backgroundColor: '#10B981', // Success green for Stock In
+    backgroundColor: Colors.success, // Success green for Stock In
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 16,
