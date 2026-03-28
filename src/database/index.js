@@ -68,11 +68,83 @@ export const initDatabase = async () => {
     // Run batch tracking migration
     await migrateToBatchTracking();
 
+    // Run Phase 1 migrations
+    await runPhase1Migrations(db);
+
     return true;
   } catch (error) {
     console.error('❌ Error initializing database:', error);
     throw error;
   }
+};
+
+/**
+ * Phase 1 migrations — add new columns and tables
+ */
+const runPhase1Migrations = async (db) => {
+  const safeAlter = async (sql) => {
+    try { await db.executeSql(sql); } catch (e) {
+      if (!e.message.includes('duplicate column') && !e.message.includes('already exists')) throw e;
+    }
+  };
+
+  // products: new columns
+  await safeAlter("ALTER TABLE products ADD COLUMN storage_location TEXT");
+  await safeAlter("ALTER TABLE products ADD COLUMN internal_notes TEXT");
+  await safeAlter("ALTER TABLE products ADD COLUMN discount_rate REAL DEFAULT 0");
+
+  // stock_transactions: new columns
+  await safeAlter("ALTER TABLE stock_transactions ADD COLUMN discount_amount REAL DEFAULT 0");
+  await safeAlter("ALTER TABLE stock_transactions ADD COLUMN is_voided INTEGER DEFAULT 0");
+  await safeAlter("ALTER TABLE stock_transactions ADD COLUMN voided_at TEXT");
+  await safeAlter("ALTER TABLE stock_transactions ADD COLUMN void_reason TEXT");
+
+  // price_history table
+  await db.executeSql(`CREATE TABLE IF NOT EXISTS price_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    old_purchase_price REAL,
+    new_purchase_price REAL,
+    old_selling_price REAL,
+    new_selling_price REAL,
+    changed_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+  )`);
+
+  // credit_sales table
+  await db.executeSql(`CREATE TABLE IF NOT EXISTS credit_sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id INTEGER,
+    buyer_name TEXT NOT NULL,
+    total_amount REAL NOT NULL,
+    paid_amount REAL DEFAULT 0,
+    due_date TEXT,
+    is_paid INTEGER DEFAULT 0,
+    paid_at TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (transaction_id) REFERENCES stock_transactions(id)
+  )`);
+
+  // business_settings table
+  await db.executeSql(`CREATE TABLE IF NOT EXISTS business_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
+
+  // Insert defaults (INSERT OR IGNORE)
+  const defaults = [
+    ['business_name', 'Toko Saya'],
+    ['currency', 'Rp'],
+    ['address', ''],
+    ['phone', ''],
+    ['tax_rate', '0'],
+  ];
+  for (const [key, value] of defaults) {
+    await db.executeSql('INSERT OR IGNORE INTO business_settings (key,value) VALUES (?,?)', [key, value]);
+  }
+
+  console.log('✅ Phase 1 migrations done');
 };
 
 /**

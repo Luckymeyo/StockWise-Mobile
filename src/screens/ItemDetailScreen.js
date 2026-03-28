@@ -12,16 +12,22 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../styles/colors';
 import { getProductById, deleteProduct } from '../database/queries/products';
+import { getPriceHistory } from '../database/queries/priceHistory';
 
 export default function ItemDetailScreen({ route, navigation }) {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showPriceHistory, setShowPriceHistory] = useState(false);
+  const [priceHistory, setPriceHistory] = useState([]);
 
   useEffect(() => {
     loadProduct();
@@ -97,6 +103,12 @@ export default function ItemDetailScreen({ route, navigation }) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
+  };
+
+  const handleOpenPriceHistory = async () => {
+    const history = await getPriceHistory(productId);
+    setPriceHistory(history);
+    setShowPriceHistory(true);
   };
 
   const getStockStatus = () => {
@@ -214,14 +226,24 @@ export default function ItemDetailScreen({ route, navigation }) {
               </Text>
             </View>
 
-            {product.purchase_price && product.selling_price && (
+            {product.purchase_price > 0 && product.selling_price > 0 && (
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Margin</Text>
-                <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="trending-up" size={14} color={Colors.success} />
+                  <Text style={styles.infoLabel}>Margin</Text>
+                </View>
+                <Text style={[styles.infoValue, { color: Colors.success, fontWeight: '600' }]}>
                   {calculateMargin()}
                 </Text>
               </View>
             )}
+            <TouchableOpacity style={styles.infoRow} onPress={handleOpenPriceHistory}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="history" size={14} color={Colors.primary} />
+                <Text style={[styles.infoLabel, { color: Colors.primary }]}>Riwayat Harga</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={16} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
 
           {/* Expiry Information */}
@@ -257,6 +279,24 @@ export default function ItemDetailScreen({ route, navigation }) {
               <Text style={styles.infoValue}>{formatDate(product.updated_at)}</Text>
             </View>
 
+            {product.storage_location ? (
+              <View style={styles.infoRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MaterialCommunityIcons name="map-marker-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.infoLabel}>Lokasi</Text>
+                </View>
+                <Text style={styles.infoValue}>{product.storage_location}</Text>
+              </View>
+            ) : null}
+            {product.internal_notes ? (
+              <View style={styles.descriptionContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                  <MaterialCommunityIcons name="note-text-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.infoLabel}>Catatan Internal</Text>
+                </View>
+                <Text style={styles.descriptionText}>{product.internal_notes}</Text>
+              </View>
+            ) : null}
             {product.description && (
               <View style={styles.descriptionContainer}>
                 <Text style={styles.infoLabel}>Catatan</Text>
@@ -297,6 +337,39 @@ export default function ItemDetailScreen({ route, navigation }) {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* Price History Modal */}
+        <Modal visible={showPriceHistory} animationType="slide" transparent onRequestClose={() => setShowPriceHistory(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Riwayat Harga</Text>
+                <TouchableOpacity onPress={() => setShowPriceHistory(false)}>
+                  <MaterialCommunityIcons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              {priceHistory.length === 0 ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={styles.modalEmptyText}>Belum ada perubahan harga</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={priceHistory}
+                  keyExtractor={(item) => String(item.id)}
+                  renderItem={({ item }) => (
+                    <View style={styles.phRow}>
+                      <Text style={styles.phDate}>{item.changed_at?.substring(0, 16)}</Text>
+                      <View style={styles.phPrices}>
+                        <Text style={styles.phLabel}>Beli: <Text style={styles.phOld}>Rp {(item.old_purchase_price||0).toLocaleString('id-ID')}</Text> → <Text style={styles.phNew}>Rp {(item.new_purchase_price||0).toLocaleString('id-ID')}</Text></Text>
+                        <Text style={styles.phLabel}>Jual: <Text style={styles.phOld}>Rp {(item.old_selling_price||0).toLocaleString('id-ID')}</Text> → <Text style={styles.phNew}>Rp {(item.new_selling_price||0).toLocaleString('id-ID')}</Text></Text>
+                      </View>
+                    </View>
+                  )}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -469,4 +542,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textDark,
   },
+
+  // Modal styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: Colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '70%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textDark },
+  modalEmpty: { alignItems: 'center', paddingVertical: 32 },
+  modalEmptyText: { color: Colors.textSecondary, fontSize: 14 },
+  phRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.divider },
+  phDate: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4 },
+  phPrices: { gap: 2 },
+  phLabel: { fontSize: 13, color: Colors.textDark },
+  phOld: { color: Colors.danger, textDecorationLine: 'line-through' },
+  phNew: { color: Colors.success, fontWeight: '600' },
 });

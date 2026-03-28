@@ -21,7 +21,7 @@ export default function BarcodeScannerScreen({ navigation, route }) {
   const [hasPermission, setHasPermission] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
 
-  const { onScan } = route.params || {};
+  const { onScan, scanMode } = route.params || {};
 
   useEffect(() => {
     requestCameraPermission();
@@ -72,10 +72,14 @@ export default function BarcodeScannerScreen({ navigation, route }) {
         {
           text: 'Gunakan',
           onPress: () => {
-            if (onScan) {
+            if (scanMode === 'search') {
+              navigation.navigate('InventoryMain', { scannedBarcode: barcode });
+            } else if (onScan) {
               onScan(barcode);
+              navigation.goBack();
+            } else {
+              navigation.goBack();
             }
-            navigation.goBack();
           },
         },
       ]

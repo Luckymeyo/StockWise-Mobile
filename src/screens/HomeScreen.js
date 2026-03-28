@@ -16,19 +16,25 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import Svg, { Polyline, Line } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../styles/colors';
 import {
   getAllProducts,
   getLowStockProducts,
   getNearExpiryProducts,
+  getInventoryHealthStats,
 } from '../database/queries/products';
 import {
   getRecentTransactions,
   getTransactionStats,
+  getTopProducts,
+  getDailyStatsForSparkline,
 } from '../database/queries/transactions';
 import { countExpiringProducts } from '../database/batchTracking';
+import { getAllSettings } from '../database/queries/businessSettings';
 
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -43,7 +49,11 @@ export default function HomeScreen({ navigation }) {
   });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
-  
+  const [healthStats, setHealthStats] = useState({ total: 0, healthy: 0, low_stock: 0, out_of_stock: 0 });
+  const [topProducts, setTopProducts] = useState([]);
+  const [sparklineData, setSparklineData] = useState([]);
+  const [businessName, setBusinessName] = useState('Dashboard');
+
   // Settings state
   const [lowStockEnabled, setLowStockEnabled] = useState(true);
   const [expiryEnabled, setExpiryEnabled] = useState(true);
@@ -97,6 +107,17 @@ export default function HomeScreen({ navigation }) {
 
       // Get recent transactions
       const recent = await getRecentTransactions(5);
+
+      // New dashboard data
+      const health = await getInventoryHealthStats();
+      const top3 = await getTopProducts(3, 7);
+      const sparkline = await getDailyStatsForSparkline(7);
+      const bizSettings = await getAllSettings();
+
+      setHealthStats(health);
+      setTopProducts(top3);
+      setSparklineData(sparkline);
+      setBusinessName(bizSettings.business_name || 'Dashboard');
 
       // Update state
       setStats({
@@ -209,16 +230,18 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.greeting}>Dashboard</Text>
+              <Text style={styles.greeting}>{businessName}</Text>
               <Text style={styles.dateText}>{getTodayDate()}</Text>
             </View>
             <View style={styles.headerButtons}>
               <TouchableOpacity
                 style={styles.settingsButton}
-                onPress={() => navigation.navigate('Settings')}
+                onPress={() => navigation.navigate('BusinessSettings')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.settingsIcon}>⚙️</Text>
+                <View style={[styles.notificationIcon]}>
+                  <MaterialCommunityIcons name="cog-outline" size={22} color={Colors.textSecondary} />
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.notificationButton}
@@ -373,6 +396,68 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
         </View>
+
+        {/* === Quick Action Row === */}
+        <View style={[styles.section, { marginBottom: 20 }]}>
+          <View style={styles.quickRowGrid}>
+            {[
+              { label: 'Stok Masuk', icon: 'arrow-down-circle-outline', nav: () => navigation.navigate('Inventory', { screen: 'StockIn', params: { productId: null } }) },
+              { label: 'Stok Keluar', icon: 'arrow-up-circle-outline', nav: () => navigation.navigate('Inventory') },
+              { label: 'Scan', icon: 'barcode-scan', nav: () => navigation.navigate('Inventory', { screen: 'BarcodeScanner' }) },
+              { label: 'Laporan', icon: 'chart-bar', nav: () => navigation.navigate('Management', { screen: 'FinancialAnalysis' }) },
+            ].map((item) => (
+              <TouchableOpacity key={item.label} style={styles.quickRowBtn} onPress={item.nav} activeOpacity={0.75}>
+                <View style={styles.quickRowIconBg}>
+                  <MaterialCommunityIcons name={item.icon} size={22} color={Colors.primary} />
+                </View>
+                <Text style={styles.quickRowLabel}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* === 7-Day Sparkline === */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pergerakan 7 Hari</Text>
+          <View style={styles.glassCard}>
+            <SparklineChart data={sparklineData} />
+            <View style={styles.sparklineLegend}>
+              <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.success }]} /><Text style={styles.legendText}>Masuk</Text></View>
+              <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: Colors.danger }]} /><Text style={styles.legendText}>Keluar</Text></View>
+            </View>
+          </View>
+        </View>
+
+        {/* === Inventory Health Widget === */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Kesehatan Stok</Text>
+          <View style={styles.glassCard}>
+            <HealthBar stats={healthStats} />
+            <View style={styles.healthLabelRow}>
+              <Text style={[styles.healthLabel, { color: Colors.success }]}>Aman {healthStats.healthy}</Text>
+              <Text style={[styles.healthLabel, { color: Colors.warning }]}>Rendah {healthStats.low_stock}</Text>
+              <Text style={[styles.healthLabel, { color: Colors.danger }]}>Habis {healthStats.out_of_stock}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* === Top 3 Active Products === */}
+        {topProducts.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Produk Teraktif</Text>
+            <View style={styles.activityContainer}>
+              {topProducts.map((p, idx) => (
+                <TouchableOpacity key={p.id} style={styles.topProductRow}
+                  onPress={() => navigation.navigate('Inventory', { screen: 'ItemDetail', params: { productId: p.id } })}
+                  activeOpacity={0.7}>
+                  <View style={styles.topRankBadge}><Text style={styles.topRankText}>{idx + 1}</Text></View>
+                  <Text style={styles.topProductName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.topProductCount}>{p.tx_count}x</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Low Stock Alert - Modern Alert Card - Only show if enabled */}
         {lowStockEnabled && lowStockProducts.length > 0 && (
@@ -581,6 +666,52 @@ export default function HomeScreen({ navigation }) {
     </SafeAreaView>
   );
 }
+
+// ─── Sparkline Chart Component ──────────────────────────────────────────────
+function SparklineChart({ data }) {
+  const W = 280, H = 60;
+  if (!data || data.length === 0) {
+    return (
+      <Svg width={W} height={H}>
+        <Line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke={Colors.border} strokeWidth={1.5} />
+      </Svg>
+    );
+  }
+
+  const maxIn = Math.max(...data.map(d => d.stock_in_count || 0), 1);
+  const maxOut = Math.max(...data.map(d => d.stock_out_count || 0), 1);
+  const maxVal = Math.max(maxIn, maxOut, 1);
+
+  const toPoints = (key) =>
+    data.map((d, i) => {
+      const x = data.length === 1 ? W / 2 : (i / (data.length - 1)) * W;
+      const y = H - ((d[key] || 0) / maxVal) * (H - 8) - 4;
+      return `${x},${y}`;
+    }).join(' ');
+
+  return (
+    <Svg width={W} height={H}>
+      <Polyline points={toPoints('stock_in_count')} fill="none" stroke={Colors.success} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <Polyline points={toPoints('stock_out_count')} fill="none" stroke={Colors.danger} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Health Bar Component ────────────────────────────────────────────────────
+function HealthBar({ stats }) {
+  const total = stats.total || 1;
+  const hPct = (stats.healthy / total) * 100;
+  const lPct = (stats.low_stock / total) * 100;
+  const oPct = (stats.out_of_stock / total) * 100;
+  return (
+    <View style={{ flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', backgroundColor: Colors.border }}>
+      <View style={{ flex: hPct, backgroundColor: Colors.success }} />
+      <View style={{ flex: lPct, backgroundColor: Colors.warning }} />
+      <View style={{ flex: oPct, backgroundColor: Colors.danger }} />
+    </View>
+  );
+}
+
 
 const styles = StyleSheet.create({
   safe: {
@@ -1092,4 +1223,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
   },
+
+  // Quick Row
+  quickRowGrid: { flexDirection: 'row', gap: 8 },
+  quickRowBtn: {
+    flex: 1, alignItems: 'center', backgroundColor: Colors.white,
+    borderRadius: 12, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border,
+  },
+  quickRowIconBg: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  quickRowLabel: { fontSize: 11, fontWeight: '600', color: Colors.textDark, textAlign: 'center' },
+
+  // Sparkline
+  sparklineLegend: { flexDirection: 'row', gap: 16, marginTop: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 12, color: Colors.textSecondary },
+
+  // Health
+  healthLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  healthLabel: { fontSize: 12, fontWeight: '600' },
+
+  // Top Products
+  topProductRow: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
+    paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: Colors.divider,
+  },
+  topRankBadge: {
+    width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  topRankText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  topProductName: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textDark },
+  topProductCount: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
 });

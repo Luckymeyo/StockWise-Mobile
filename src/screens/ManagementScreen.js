@@ -18,10 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Colors from '../styles/colors';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Toast from 'react-native-toast-message';
 import {
   getAllTransactions,
   getTransactionStats,
   getAllTransactionsWithPricing,
+  voidTransaction,
 } from '../database/queries/transactions';
 
 // Enable LayoutAnimation on Android
@@ -40,6 +42,7 @@ export default function ManagementScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedId, setExpandedId] = useState(null);
+  const [showVoided, setShowVoided] = useState(false);
   const ITEMS_PER_PAGE = 10;
 
   // useFocusEffect covers initial mount + returning to screen.
@@ -53,7 +56,7 @@ export default function ManagementScreen({ navigation }) {
     try {
       setLoading(true);
       const [allTransactions, transactionStats] = await Promise.all([
-        getAllTransactionsWithPricing(),
+        getAllTransactionsWithPricing(null, null, null, true), // include voided so we can show them
         getTransactionStats(),
       ]);
       setTransactions(allTransactions);
@@ -176,23 +179,52 @@ export default function ManagementScreen({ navigation }) {
     setExpandedId(expandedId === id ? null : id);
   };
 
+  const handleVoid = (transaction) => {
+    let reason = '';
+    Alert.prompt(
+      'Batalkan Transaksi',
+      'Masukkan alasan pembatalan (wajib):',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Batalkan',
+          onPress: async (r) => {
+            if (!r || r.trim() === '') {
+              Alert.alert('Error', 'Alasan pembatalan wajib diisi');
+              return;
+            }
+            try {
+              await voidTransaction(transaction.id, r.trim());
+              Toast.show({ type: 'success', text1: 'Transaksi Dibatalkan' });
+              loadData();
+            } catch (e) {
+              Alert.alert('Error', e.message || 'Gagal membatalkan transaksi');
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
   // Render compact transaction row
   const renderTransaction = (transaction, index) => {
     const isStockIn = transaction.type === 'IN';
     const isExpanded = expandedId === (transaction.id || index);
+    const isVoided = transaction.is_voided === 1;
     const reasonInfo = parseReason(transaction.notes, transaction.type);
     const profitInfo = calculateProfit(transaction);
 
     return (
       <TouchableOpacity
         key={transaction.id || index}
-        style={styles.transactionRow}
+        style={[styles.transactionRow, isVoided && styles.transactionVoided]}
         onPress={() => toggleExpand(transaction.id || index)}
         activeOpacity={0.7}
       >
         {/* Compact Row */}
         <View style={styles.rowCompact}>
-          <View style={[styles.directionIcon, isStockIn ? styles.directionIn : styles.directionOut]}>
+          <View style={[styles.directionIcon, isStockIn ? styles.directionIn : styles.directionOut, isVoided && { opacity: 0.4 }]}>
             <MaterialCommunityIcons
               name={isStockIn ? 'arrow-down' : 'arrow-up'}
               size={18}
@@ -200,7 +232,10 @@ export default function ManagementScreen({ navigation }) {
             />
           </View>
           <View style={styles.rowContent}>
-            <Text style={styles.rowProductName} numberOfLines={1}>{transaction.product_name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[styles.rowProductName, isVoided && { textDecorationLine: 'line-through', color: Colors.textLight }]} numberOfLines={1}>{transaction.product_name}</Text>
+              {isVoided && <View style={styles.voidedBadge}><Text style={styles.voidedText}>Dibatalkan</Text></View>}
+            </View>
             <Text style={styles.rowDate}>{formatDate(transaction.transaction_date)}</Text>
           </View>
           <View style={styles.rowRight}>
@@ -280,6 +315,19 @@ export default function ManagementScreen({ navigation }) {
             {/* Notes (for Stock IN) */}
             {isStockIn && transaction.notes && transaction.notes !== 'Stok masuk' && (
               <Text style={styles.noteText}>{transaction.notes}</Text>
+            )}
+
+            {/* Void reason */}
+            {isVoided && transaction.void_reason && (
+              <Text style={styles.noteText}>Alasan: {transaction.void_reason}</Text>
+            )}
+
+            {/* Void button */}
+            {!isVoided && (
+              <TouchableOpacity style={styles.voidBtn} onPress={() => handleVoid(transaction)}>
+                <MaterialCommunityIcons name="cancel" size={14} color={Colors.danger} />
+                <Text style={styles.voidBtnText}>Batalkan Transaksi</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
@@ -601,4 +649,11 @@ const styles = StyleSheet.create({
   ellipsis: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   ellipsisText: { fontSize: 16, color: Colors.textLight, fontWeight: '700' },
   pageInfo: { textAlign: 'center', fontSize: 12, color: Colors.textLight, paddingBottom: 8 },
+
+  // Void styles
+  transactionVoided: { opacity: 0.7, backgroundColor: Colors.bgSecondary },
+  voidedBadge: { backgroundColor: Colors.dangerLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  voidedText: { fontSize: 10, fontWeight: '700', color: Colors.danger },
+  voidBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, padding: 8, backgroundColor: Colors.dangerLight, borderRadius: 8, alignSelf: 'flex-start' },
+  voidBtnText: { fontSize: 12, fontWeight: '600', color: Colors.danger },
 });

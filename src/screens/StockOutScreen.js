@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Share,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../styles/colors';
@@ -20,6 +22,8 @@ import { getProductById } from '../database/queries/products';
 import { createStockTransaction } from '../database/queries/transactions';
 import { createNotification, NotificationTypes } from '../database/queries/notifications';
 import { getProductBatches } from '../database/batchTracking';
+import { createCreditSale } from '../database/queries/creditSales';
+import { getAllSettings } from '../database/queries/businessSettings';
 import Toast from 'react-native-toast-message';
 
 export default function StockOutScreen({ route, navigation }) {
@@ -30,6 +34,12 @@ export default function StockOutScreen({ route, navigation }) {
   const [reason, setReason] = useState('Terjual'); // Default reason
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [discountAmount, setDiscountAmount] = useState('');
+  const [discountMode, setDiscountMode] = useState('rp'); // 'rp' or '%'
+  const [isCreditSale, setIsCreditSale] = useState(false);
+  const [buyerName, setBuyerName] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [bizSettings, setBizSettings] = useState({ business_name: 'Toko Saya', currency: 'Rp' });
 
   const reasons = [
     { value: 'Terjual', label: 'Terjual', color: Colors.success },
@@ -40,7 +50,37 @@ export default function StockOutScreen({ route, navigation }) {
   ];
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { loadProduct(); }, []);
+  useEffect(() => { loadProduct(); loadBizSettings(); }, []);
+
+  const loadBizSettings = async () => {
+    try { const s = await getAllSettings(); setBizSettings(s); } catch (e) {}
+  };
+
+  const getDiscountRp = () => {
+    const qty = parseFloat(quantity) || 0;
+    const price = product?.selling_price || 0;
+    const total = qty * price;
+    const d = parseFloat(discountAmount) || 0;
+    if (discountMode === '%') return total * (d / 100);
+    return Math.min(d, total);
+  };
+
+  const getFinalTotal = () => {
+    const qty = parseFloat(quantity) || 0;
+    const price = product?.selling_price || 0;
+    return Math.max(0, qty * price - getDiscountRp());
+  };
+
+  const shareReceipt = async (txId) => {
+    const qty = parseFloat(quantity) || 0;
+    const price = product?.selling_price || 0;
+    const discRp = getDiscountRp();
+    const total = getFinalTotal();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('id-ID') + ' ' + now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const receipt = `=== STRUK PENJUALAN ===\n${bizSettings.business_name}\n${dateStr}\n----------------------\n${product.name}\nQty: ${qty} ${product.unit}\nHarga: ${bizSettings.currency} ${price.toLocaleString('id-ID')}\nDiskon: ${bizSettings.currency} ${Math.round(discRp).toLocaleString('id-ID')}\n----------------------\nTOTAL: ${bizSettings.currency} ${Math.round(total).toLocaleString('id-ID')}\n======================\nTerima kasih!`;
+    try { await Share.share({ message: receipt }); } catch (e) {}
+  };
 
   const loadProduct = async () => {
     try {
@@ -138,8 +178,24 @@ export default function StockOutScreen({ route, navigation }) {
         });
       }
 
+      // Create credit sale if toggled
+      let lastTxId = null;
+      // Get the last inserted transaction id (approximation — use last tx for this product)
+      const { getProductTransactions } = require('../database/queries/transactions');
+      const recentTxs = await getProductTransactions(productId, 1);
+      if (recentTxs.length > 0) lastTxId = recentTxs[0].id;
+
+      if (isCreditSale && buyerName.trim()) {
+        await createCreditSale(lastTxId, buyerName.trim(), getFinalTotal(), dueDate || null, notes || null);
+      }
+
       Toast.show({ type: 'success', text1: 'Berhasil', text2: `${product.name} -${qty} ${product.unit}` });
-      navigation.goBack();
+
+      // Offer receipt
+      Alert.alert('Stok Keluar Berhasil', 'Bagikan struk ke pelanggan?', [
+        { text: 'Tidak', onPress: () => navigation.goBack() },
+        { text: 'Bagikan Struk', onPress: async () => { await shareReceipt(lastTxId); navigation.goBack(); } },
+      ]);
     } catch (error) {
       console.error('Error saving stock out:', error);
       Alert.alert('Error', error.message || 'Gagal mengurangi stok');
@@ -391,6 +447,50 @@ export default function StockOutScreen({ route, navigation }) {
               returnKeyType="done"
             />
           </View>
+
+          {/* Discount */}
+          {reason === 'Terjual' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Diskon (Opsional)</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity style={[styles.modeBtn, discountMode==='rp' && styles.modeBtnActive]} onPress={() => setDiscountMode('rp')}>
+                  <Text style={[styles.modeBtnText, discountMode==='rp' && styles.modeBtnTextActive]}>Rp</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modeBtn, discountMode==='%' && styles.modeBtnActive]} onPress={() => setDiscountMode('%')}>
+                  <Text style={[styles.modeBtnText, discountMode==='%' && styles.modeBtnTextActive]}>%</Text>
+                </TouchableOpacity>
+                <View style={[styles.inputContainer, { flex: 1 }]}>
+                  <TextInput style={styles.input} value={discountAmount} onChangeText={setDiscountAmount} placeholder="0" placeholderTextColor={Colors.textLight} keyboardType="numeric" />
+                  <Text style={styles.inputUnit}>{discountMode}</Text>
+                </View>
+              </View>
+              {parseFloat(discountAmount) > 0 && quantity && (
+                <Text style={{ fontSize: 13, color: Colors.success, marginTop: 6, fontWeight: '600' }}>
+                  Total: Rp {Math.round(getFinalTotal()).toLocaleString('id-ID')}
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Credit / Hutang */}
+          {reason === 'Terjual' && (
+            <View style={styles.section}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={styles.sectionLabel}>Catat sebagai Hutang</Text>
+                <Switch value={isCreditSale} onValueChange={setIsCreditSale} trackColor={{ true: Colors.primary }} />
+              </View>
+              {isCreditSale && (
+                <View style={{ gap: 8, marginTop: 8 }}>
+                  <View style={styles.inputContainer}>
+                    <TextInput style={styles.input} value={buyerName} onChangeText={setBuyerName} placeholder="Nama pembeli (wajib)" placeholderTextColor={Colors.textLight} />
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <TextInput style={styles.input} value={dueDate} onChangeText={setDueDate} placeholder="Jatuh tempo (DD/MM/YYYY)" placeholderTextColor={Colors.textLight} />
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Save Button */}
           <View style={styles.buttonContainer}>
@@ -733,4 +833,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textLight,
   },
+
+  modeBtn: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white },
+  modeBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  modeBtnText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  modeBtnTextActive: { color: Colors.white },
 });

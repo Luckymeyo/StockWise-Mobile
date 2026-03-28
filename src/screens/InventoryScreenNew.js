@@ -7,7 +7,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import Colors from '../styles/colors';
 import { getAllProducts, getLowStockProducts, getNearExpiryProducts, deleteProduct } from '../database/queries/products';
 
-export default function InventoryScreen({ navigation }) {
+export default function InventoryScreen({ navigation, route }) {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -16,6 +16,13 @@ export default function InventoryScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Handle scanned barcode passed via navigation params
+  useEffect(() => {
+    if (route.params?.scannedBarcode) {
+      setSearchQuery(route.params.scannedBarcode);
+    }
+  }, [route.params?.scannedBarcode]);
 
   // loadProducts is defined before the hooks that reference it so the
   // useCallback/useEffect dependency arrays can capture the stable reference.
@@ -69,7 +76,14 @@ export default function InventoryScreen({ navigation }) {
               <Text style={[st.stockText, {color: isLowStock ? Colors.danger : Colors.success}]}>Stok: {item.current_stock} {item.unit}</Text>
               {isLowStock && <View style={st.lowBadge}><MaterialCommunityIcons name="alert-circle" size={12} color={Colors.warning} /><Text style={st.lowBadgeText}>Low</Text></View>}
             </View>
-            <Text style={st.priceText}>{formatCurrency(item.selling_price)}</Text>
+            <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+              <Text style={st.priceText}>{formatCurrency(item.selling_price)}</Text>
+              {item.purchase_price > 0 && item.selling_price > 0 && (() => {
+                const margin = ((item.selling_price - item.purchase_price) / item.purchase_price * 100).toFixed(0);
+                const isPos = parseFloat(margin) >= 0;
+                return <View style={[st.marginBadge, {backgroundColor: isPos ? Colors.successLight : Colors.dangerLight}]}><Text style={[st.marginBadgeText, {color: isPos ? Colors.success : Colors.danger}]}>{margin}%</Text></View>;
+              })()}
+            </View>
             {item.expiry_date && <View style={{flexDirection:'row',alignItems:'center',gap:4}}>
               <MaterialCommunityIcons name="clock-outline" size={12} color={isExpiring ? Colors.danger : Colors.textLight} />
               <Text style={[st.expiryText, isExpiring && {color:Colors.danger,fontWeight:'600'}]}>Exp: {formatDate(item.expiry_date)}</Text>
@@ -101,6 +115,9 @@ export default function InventoryScreen({ navigation }) {
           <MaterialCommunityIcons name="magnify" size={20} color={Colors.textLight} />
           <TextInput style={st.searchInput} placeholder="Cari produk, SKU, atau barcode..." placeholderTextColor={Colors.textLight} value={searchQuery} onChangeText={setSearchQuery} />
           {searchQuery !== '' && <TouchableOpacity onPress={() => setSearchQuery('')}><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textLight} /></TouchableOpacity>}
+          <TouchableOpacity onPress={() => navigation.navigate('BarcodeScanner', { scanMode: 'search' })} style={{marginLeft: 4}}>
+            <MaterialCommunityIcons name="barcode-scan" size={20} color={Colors.primary} />
+          </TouchableOpacity>
         </View>
         <View style={st.filterContainer}>
           {['all','low','expiry'].map(f => (
@@ -142,6 +159,8 @@ const st = StyleSheet.create({
   stockText:{fontSize:13,fontWeight:'600'}, priceText:{fontSize:13,fontWeight:'600',color:Colors.primary},
   lowBadge:{flexDirection:'row',alignItems:'center',gap:3,backgroundColor:Colors.warningBg,paddingHorizontal:6,paddingVertical:2,borderRadius:6},
   lowBadgeText:{fontSize:10,fontWeight:'700',color:Colors.warning},
+  marginBadge:{paddingHorizontal:6,paddingVertical:2,borderRadius:6},
+  marginBadgeText:{fontSize:10,fontWeight:'700'},
   expiryText:{fontSize:11,color:Colors.textLight},
   emptyContainer:{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:60},
   emptyTitle:{fontSize:18,fontWeight:'600',color:Colors.textDark,marginTop:16,marginBottom:6},

@@ -140,17 +140,19 @@ export const getProductTransactions = async (productId, limit = 50) => {
  * @param {string} dateFrom - Start date (YYYY-MM-DD)
  * @param {string} dateTo - End date (YYYY-MM-DD)
  * @param {string} type - Filter by type: 'IN', 'OUT', 'ADJUST', or null for all
+ * @param {boolean} includeVoided - Include voided transactions (default false)
  * @returns {array} List of transactions
  */
 export const getAllTransactions = async (
   dateFrom = null,
   dateTo = null,
-  type = null
+  type = null,
+  includeVoided = false
 ) => {
   try {
     const db = await getDatabase();
     let query = `
-      SELECT 
+      SELECT
         st.*,
         p.name as product_name,
         p.photo_uri
@@ -159,6 +161,10 @@ export const getAllTransactions = async (
       WHERE 1=1
     `;
     const params = [];
+
+    if (!includeVoided) {
+      query += ' AND (st.is_voided IS NULL OR st.is_voided = 0)';
+    }
 
     if (dateFrom) {
       query += ' AND DATE(st.transaction_date) >= ?';
@@ -316,12 +322,13 @@ export const getRecentTransactions = async (limit = 10) => {
 export const getAllTransactionsWithPricing = async (
   dateFrom = null,
   dateTo = null,
-  type = null
+  type = null,
+  includeVoided = false
 ) => {
   try {
     const db = await getDatabase();
     let query = `
-      SELECT 
+      SELECT
         st.*,
         p.name as product_name,
         p.photo_uri,
@@ -332,6 +339,10 @@ export const getAllTransactionsWithPricing = async (
       WHERE 1=1
     `;
     const params = [];
+
+    if (!includeVoided) {
+      query += ' AND (st.is_voided IS NULL OR st.is_voided = 0)';
+    }
 
     if (dateFrom) {
       query += ' AND DATE(st.transaction_date) >= ?';
@@ -534,6 +545,127 @@ export const getCategoryFinancialBreakdown = async (startDate, endDate) => {
   } catch (error) {
     console.error('❌ Error getting category financial breakdown:', error);
     throw error;
+  }
+};
+
+/**
+ * Void a transaction (soft delete with compensating entry)
+ */
+export const voidTransaction = async (transactionId, reason) => {
+  try {
+    const db = await getDatabase();
+    const transaction = await getTransactionById(transactionId);
+    if (!transaction) throw new Error('Transaksi tidak ditemukan');
+
+    const product = await getProductById(transaction.product_id);
+    if (!product) throw new Error('Produk tidak ditemukan');
+
+    // Mark as voided
+    await db.executeSql(
+      "UPDATE stock_transactions SET is_voided=1, voided_at=datetime('now','localtime'), void_reason=? WHERE id=?",
+      [reason, transactionId]
+    );
+
+    // Compensating stock adjustment
+    let compensatingQty = product.current_stock;
+    if (transaction.type === 'IN') {
+      compensatingQty = product.current_stock - transaction.quantity;
+    } else if (transaction.type === 'OUT') {
+      compensatingQty = product.current_stock + transaction.quantity;
+    }
+    if (compensatingQty < 0) compensatingQty = 0;
+
+    await db.executeSql(
+      `INSERT INTO stock_transactions (product_id, type, quantity, unit, notes, balance_after)
+       VALUES (?, 'ADJUST', ?, ?, ?, ?)`,
+      [transaction.product_id, compensatingQty, product.unit, `Pembatalan: ${reason}`, compensatingQty]
+    );
+
+    await updateProductStock(transaction.product_id, compensatingQty);
+    return true;
+  } catch (error) {
+    console.error('❌ Error voiding transaction:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get dead stock products (no transaction in last N days)
+ */
+export const getDeadStockProducts = async (days = 30) => {
+  try {
+    const db = await getDatabase();
+    const [result] = await db.executeSql(
+      `SELECT p.*,
+         MAX(st.transaction_date) as last_movement
+       FROM products p
+       LEFT JOIN stock_transactions st ON p.id = st.product_id AND (st.is_voided IS NULL OR st.is_voided = 0)
+       WHERE p.is_active = 1
+       GROUP BY p.id
+       HAVING last_movement IS NULL
+          OR DATE(last_movement) < DATE('now', '-' || ? || ' days', 'localtime')
+       ORDER BY last_movement ASC`,
+      [days]
+    );
+    const rows = [];
+    for (let i = 0; i < result.rows.length; i++) rows.push(result.rows.item(i));
+    return rows;
+  } catch (error) {
+    console.error('❌ Error getting dead stock:', error);
+    return [];
+  }
+};
+
+/**
+ * Get top N products by transaction count in last N days
+ */
+export const getTopProducts = async (limit = 5, days = 7) => {
+  try {
+    const db = await getDatabase();
+    const [result] = await db.executeSql(
+      `SELECT p.id, p.name, COUNT(st.id) as tx_count
+       FROM stock_transactions st
+       LEFT JOIN products p ON st.product_id = p.id
+       WHERE st.type = 'OUT'
+         AND (st.is_voided IS NULL OR st.is_voided = 0)
+         AND DATE(st.transaction_date) >= DATE('now', '-' || ? || ' days', 'localtime')
+       GROUP BY st.product_id
+       ORDER BY tx_count DESC
+       LIMIT ?`,
+      [days, limit]
+    );
+    const rows = [];
+    for (let i = 0; i < result.rows.length; i++) rows.push(result.rows.item(i));
+    return rows;
+  } catch (error) {
+    console.error('❌ Error getting top products:', error);
+    return [];
+  }
+};
+
+/**
+ * Get daily stock in/out counts for sparkline (last N days)
+ */
+export const getDailyStatsForSparkline = async (days = 7) => {
+  try {
+    const db = await getDatabase();
+    const [result] = await db.executeSql(
+      `SELECT DATE(transaction_date) as date,
+         SUM(CASE WHEN type='IN' THEN 1 ELSE 0 END) as stock_in_count,
+         SUM(CASE WHEN type='OUT' THEN 1 ELSE 0 END) as stock_out_count
+       FROM stock_transactions
+       WHERE (is_voided IS NULL OR is_voided = 0)
+         AND DATE(transaction_date) >= DATE('now', '-' || ? || ' days', 'localtime')
+       GROUP BY DATE(transaction_date)
+       ORDER BY date ASC`,
+      [days]
+    );
+    const rows = [];
+    for (let i = 0; i < result.rows.length; i++) rows.push(result.rows.item(i));
+    return rows;
+  } catch (error) {
+    console.error('❌ Error getting sparkline data:', error);
+    return [];
   }
 };
 

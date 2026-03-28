@@ -22,6 +22,10 @@ import StockInScreen from '../screens/StockInScreen';
 import StockOutScreen from '../screens/StockOutScreen';
 import ExpiringBatchesScreen from '../screens/ExpiringBatchesScreen';
 import BarcodeLabelScreen from '../screens/BarcodeLabelScreen';
+import StockOpnameScreen from '../screens/StockOpnameScreen';
+import DeadStockScreen from '../screens/DeadStockScreen';
+import HutangScreen from '../screens/HutangScreen';
+import BusinessSettingsScreen from '../screens/BusinessSettingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -33,6 +37,10 @@ function HomeStack() {
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="BusinessSettings" component={BusinessSettingsScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="StockOpname" component={StockOpnameScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="DeadStock" component={DeadStockScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="Hutang" component={HutangScreen} options={{ presentation: 'card' }} />
     </Stack.Navigator>
   );
 }
@@ -58,6 +66,9 @@ function ManagementStack() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ManagementMain" component={ManagementScreen} />
       <Stack.Screen name="FinancialAnalysis" component={FinancialAnalysisScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="StockOpname" component={StockOpnameScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="DeadStock" component={DeadStockScreen} options={{ presentation: 'card' }} />
+      <Stack.Screen name="Hutang" component={HutangScreen} options={{ presentation: 'card' }} />
     </Stack.Navigator>
   );
 }

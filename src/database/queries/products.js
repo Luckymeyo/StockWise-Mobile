@@ -4,6 +4,7 @@
  */
 
 import { getDatabase } from '../index';
+import { recordPriceChange } from './priceHistory';
 
 /**
  * Get all products
@@ -209,7 +210,14 @@ export const updateProduct = async (id, productData) => {
       unit,
       min_stock_threshold,
       expiry_date,
+      storage_location,
+      internal_notes,
     } = productData;
+
+    // Fetch old prices to track changes
+    const [oldRow] = await db.executeSql('SELECT purchase_price, selling_price FROM products WHERE id = ?', [id]);
+    const oldPurchase = oldRow.rows.length > 0 ? oldRow.rows.item(0).purchase_price : null;
+    const oldSelling = oldRow.rows.length > 0 ? oldRow.rows.item(0).selling_price : null;
 
     await db.executeSql(
       `
@@ -225,6 +233,8 @@ export const updateProduct = async (id, productData) => {
         unit = ?,
         min_stock_threshold = ?,
         expiry_date = ?,
+        storage_location = ?,
+        internal_notes = ?,
         updated_at = datetime('now', 'localtime')
       WHERE id = ?
     `,
@@ -240,9 +250,18 @@ export const updateProduct = async (id, productData) => {
         unit,
         min_stock_threshold,
         expiry_date,
+        storage_location || null,
+        internal_notes || null,
         id,
       ]
     );
+
+    // Record price history if prices changed
+    const ppChanged = oldPurchase !== null && parseFloat(oldPurchase) !== parseFloat(purchase_price);
+    const spChanged = oldSelling !== null && parseFloat(oldSelling) !== parseFloat(selling_price);
+    if (ppChanged || spChanged) {
+      await recordPriceChange(id, oldPurchase, purchase_price, oldSelling, selling_price);
+    }
 
     return true;
   } catch (error) {
@@ -348,6 +367,33 @@ export const updateProductStock = async (productId, newStock) => {
   } catch (error) {
     console.error('Error updating product stock:', error);
     throw error;
+  }
+};
+
+/**
+ * Get inventory health stats: total, healthy, low_stock, out_of_stock
+ */
+export const getInventoryHealthStats = async () => {
+  try {
+    const db = await getDatabase();
+    const [result] = await db.executeSql(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN current_stock = 0 THEN 1 ELSE 0 END) as out_of_stock,
+        SUM(CASE WHEN current_stock > 0 AND current_stock <= min_stock_threshold THEN 1 ELSE 0 END) as low_stock,
+        SUM(CASE WHEN current_stock > min_stock_threshold THEN 1 ELSE 0 END) as healthy
+      FROM products WHERE is_active = 1
+    `);
+    const row = result.rows.item(0);
+    return {
+      total: row.total || 0,
+      healthy: row.healthy || 0,
+      low_stock: row.low_stock || 0,
+      out_of_stock: row.out_of_stock || 0,
+    };
+  } catch (error) {
+    console.error('Error getting inventory health stats:', error);
+    return { total: 0, healthy: 0, low_stock: 0, out_of_stock: 0 };
   }
 };
 

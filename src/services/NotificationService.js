@@ -272,6 +272,64 @@ export async function sendGroupedExpiringAlert(count) {
 }
 
 /**
+ * Schedule daily summary notification at 20:00 every day
+ * Shows today's stock in/out counts and low stock count
+ * @param {Object} stats - { stockInCount, stockOutCount, lowStockCount }
+ */
+export async function scheduleDailySummary(stats = {}) {
+  try {
+    // Cancel any existing daily summary trigger
+    await notifee.cancelTriggerNotification('daily-summary');
+
+    const { stockInCount = 0, stockOutCount = 0, lowStockCount = 0 } = stats;
+
+    const now = new Date();
+    const trigger20 = new Date(
+      now.getFullYear(), now.getMonth(), now.getDate(), 20, 0, 0, 0
+    );
+    // If already past 20:00 today, schedule for tomorrow
+    if (now >= trigger20) {
+      trigger20.setDate(trigger20.getDate() + 1);
+    }
+
+    const trigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: trigger20.getTime(),
+      repeatFrequency: 2, // RepeatFrequency.DAILY
+    };
+
+    let bodyParts = [];
+    if (stockInCount > 0) bodyParts.push(`${stockInCount} stok masuk`);
+    if (stockOutCount > 0) bodyParts.push(`${stockOutCount} stok keluar`);
+    if (lowStockCount > 0) bodyParts.push(`${lowStockCount} stok rendah`);
+    const body = bodyParts.length
+      ? bodyParts.join(', ')
+      : 'Tidak ada aktivitas hari ini';
+
+    await notifee.createTriggerNotification(
+      {
+        id: 'daily-summary',
+        title: 'Ringkasan Harian StockWise',
+        body,
+        android: {
+          channelId: 'stockwise-activity',
+          color: '#DA7756',
+          pressAction: { id: 'default', launchActivity: 'default' },
+          showTimestamp: true,
+        },
+        ios: { sound: 'default' },
+        data: { type: 'DAILY_SUMMARY' },
+      },
+      trigger
+    );
+
+    console.log('✅ Daily summary scheduled at 20:00');
+  } catch (error) {
+    console.error('Error scheduling daily summary:', error);
+  }
+}
+
+/**
  * Cancel all notifications
  */
 export async function cancelAllNotifications() {
@@ -375,6 +433,7 @@ export default {
   sendStockOutNotification,
   sendGroupedLowStockAlert,
   sendGroupedExpiringAlert,
+  scheduleDailySummary,
   cancelAllNotifications,
   cancelNotification,
   getBadgeCount,

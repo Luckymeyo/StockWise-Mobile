@@ -42,6 +42,8 @@ export default function EditItemScreen({ route, navigation }) {
     unit: 'pcs',
     min_stock_threshold: '',
     expiry_date: '',
+    storage_location: '',
+    internal_notes: '',
   });
 
   const [errors, setErrors] = useState({});
@@ -93,6 +95,8 @@ export default function EditItemScreen({ route, navigation }) {
         unit: product.unit || 'pcs',
         min_stock_threshold: product.min_stock_threshold ? String(product.min_stock_threshold) : '',
         expiry_date: product.expiry_date || '',
+        storage_location: product.storage_location || '',
+        internal_notes: product.internal_notes || '',
       });
       
       // Set date picker date if expiry exists
@@ -515,6 +519,33 @@ export default function EditItemScreen({ route, navigation }) {
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
+              />
+            </View>
+          </View>
+
+          {/* Informasi Tambahan */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Informasi Tambahan</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Lokasi Penyimpanan</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="contoh: Rak A3, Gudang Belakang"
+                placeholderTextColor={Colors.textLight}
+                value={formData.storage_location}
+                onChangeText={(t) => handleChange('storage_location', t)}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Catatan Internal</Text>
+              <TextInput
+                style={[styles.input, { maxHeight: 80, textAlignVertical: 'top' }]}
+                placeholder="Catatan internal (tidak tampil ke pelanggan)"
+                placeholderTextColor={Colors.textLight}
+                value={formData.internal_notes}
+                onChangeText={(t) => handleChange('internal_notes', t)}
+                multiline
+                numberOfLines={3}
               />
             </View>
           </View>

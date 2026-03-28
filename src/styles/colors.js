@@ -1,52 +1,53 @@
-// Modern Color Palette - StockWise Mobile
+// Warm Coral Design System - StockWise Mobile
 export default {
   // Backgrounds
-  bg: '#F8FAFC',
-  bgSecondary: '#F1F5F9',
-  
-  // Primary Colors - Modern Indigo
-  primary: '#6366F1',
-  primaryLight: '#EEF2FF',
-  primaryDark: '#4F46E5',
-  
+  bg: '#FAF9F7',
+  bgSecondary: '#F5F0E8',
+
+  // Primary Colors - Warm Coral
+  primary: '#DA7756',
+  primaryLight: '#FDEEE9',
+  primaryDark: '#C06240',
+
   // Success - Green
-  success: '#10B981',
-  successLight: '#DCFCE7',
-  successBg: '#F0FDF4',
-  
+  success: '#3DAB6A',
+  successLight: '#D4EDDA',
+  successBg: '#F0FAF4',
+
   // Warning - Amber
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
+  warning: '#E8A838',
+  warningLight: '#FDF0D0',
   warningBg: '#FFFBEB',
-  
+
   // Danger - Red
-  danger: '#EF4444',
-  dangerLight: '#FEE2E2',
-  dangerBg: '#FEF2F2',
-  
+  danger: '#D94F4F',
+  dangerLight: '#FAD9D9',
+  dangerBg: '#FDF2F2',
+
   // Text Colors
-  textDark: '#0F172A',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  textLight: '#94A3B8',
-  
+  textDark: '#2D2B28',
+  textPrimary: '#3A3733',
+  textSecondary: '#807A6E',
+  textLight: '#B0A898',
+
   // UI Elements
   white: '#FFFFFF',
-  border: '#E2E8F0',
-  divider: '#F1F5F9',
-  
-  // Card Colors (for backwards compatibility)
-  cardBlue: '#6366F1',
-  cardCyan: '#08B9E5',
-  
+  border: '#E8E2D9',
+  divider: '#F0EBE3',
+
+  // Card Colors
+  cardBlue: '#DA7756',
+  cardCyan: '#5BA8C4',
+
   // Tab Bar
-  tabBg: '#23323B',
+  tabBg: '#2D2B28',
+  tabInactive: '#B0A898',
   tabIconBg: '#46555F',
-  
+
   // Glass Effect
-  glassWhite: 'rgba(255, 255, 255, 0.1)',
-  glassBlack: 'rgba(0, 0, 0, 0.05)',
-  
+  glassWhite: 'rgba(255, 255, 255, 0.15)',
+  glassBlack: 'rgba(0, 0, 0, 0.04)',
+
   // Shadows
   shadowLight: 'rgba(0, 0, 0, 0.04)',
   shadowMedium: 'rgba(0, 0, 0, 0.08)',

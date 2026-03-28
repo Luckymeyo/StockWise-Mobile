@@ -12,7 +12,9 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
+import Svg, { Rect, Text as SvgText } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Colors from '../styles/colors';
@@ -20,6 +22,7 @@ import {
   getFinancialStatsByDateRange,
   getDailyFinancialBreakdown,
   getCategoryFinancialBreakdown,
+  getTopProducts,
 } from '../database/queries/transactions';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -28,54 +31,59 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
   const { initialType } = route.params || {}; // 'revenue' or 'profit'
   
   const [analysisType, setAnalysisType] = useState(initialType || 'revenue');
-  const [selectedPeriod, setSelectedPeriod] = useState('week'); // week, month, year
+  const [selectedDays, setSelectedDays] = useState(30); // 7, 30, 90, or 'custom'
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const [chartType, setChartType] = useState('bar'); // bar, pie, line
   const [loading, setLoading] = useState(true);
   const [dailyData, setDailyData] = useState([]);
   const [categoryData, setCategoryData] = useState([]);
+  const [topProductsData, setTopProductsData] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
     average: 0,
     highest: 0,
     lowest: 0,
-    trend: 0, // percentage change
+    trend: 0,
   });
   const [selectedDate, setSelectedDate] = useState(null);
 
   useEffect(() => {
     loadData();
-  }, [selectedPeriod, analysisType]);
+  }, [selectedDays, analysisType, customFrom, customTo]);
 
   useFocusEffect(
     React.useCallback(() => {
       loadData();
-    }, [selectedPeriod, analysisType])
+    }, [selectedDays, analysisType])
   );
+
+  const getDateRange = () => {
+    if (selectedDays === 'custom' && customFrom && customTo) {
+      return { start: customFrom, end: customTo };
+    }
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - (selectedDays || 30));
+    return { start: formatDate(start), end: formatDate(end) };
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // Calculate date range based on selected period
-      const endDate = new Date();
-      const startDate = new Date();
-      
-      if (selectedPeriod === 'week') {
-        startDate.setDate(endDate.getDate() - 7);
-      } else if (selectedPeriod === 'month') {
-        startDate.setDate(endDate.getDate() - 30);
-      } else if (selectedPeriod === 'year') {
-        startDate.setDate(endDate.getDate() - 365);
-      }
+      const { start, end } = getDateRange();
 
       // Get daily breakdown and category breakdown
-      const [daily, categories] = await Promise.all([
-        getDailyFinancialBreakdown(formatDate(startDate), formatDate(endDate)),
-        getCategoryFinancialBreakdown(formatDate(startDate), formatDate(endDate)),
+      const [daily, categories, top5] = await Promise.all([
+        getDailyFinancialBreakdown(start, end),
+        getCategoryFinancialBreakdown(start, end),
+        getTopProducts(5, selectedDays === 'custom' ? 30 : selectedDays),
       ]);
 
       setDailyData(daily);
       setCategoryData(categories);
+      setTopProductsData(top5);
       calculateStats(daily);
     } catch (error) {
       console.error('Error loading financial analysis:', error);
@@ -398,33 +406,23 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Period Selector */}
+        {/* Date Range Chips */}
         <View style={styles.periodContainer}>
-          <TouchableOpacity
-            style={[styles.periodButton, selectedPeriod === 'week' && styles.periodButtonActive]}
-            onPress={() => setSelectedPeriod('week')}
-          >
-            <Text style={[styles.periodText, selectedPeriod === 'week' && styles.periodTextActive]}>
-              7 Hari
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodButton, selectedPeriod === 'month' && styles.periodButtonActive]}
-            onPress={() => setSelectedPeriod('month')}
-          >
-            <Text style={[styles.periodText, selectedPeriod === 'month' && styles.periodTextActive]}>
-              30 Hari
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodButton, selectedPeriod === 'year' && styles.periodButtonActive]}
-            onPress={() => setSelectedPeriod('year')}
-          >
-            <Text style={[styles.periodText, selectedPeriod === 'year' && styles.periodTextActive]}>
-              1 Tahun
-            </Text>
-          </TouchableOpacity>
+          {[{label:'7 Hari',val:7},{label:'30 Hari',val:30},{label:'90 Hari',val:90},{label:'Custom',val:'custom'}].map(({label,val}) => (
+            <TouchableOpacity key={label}
+              style={[styles.periodButton, selectedDays === val && styles.periodButtonActive]}
+              onPress={() => { setSelectedDays(val); setShowCustom(val === 'custom'); }}>
+              <Text style={[styles.periodText, selectedDays === val && styles.periodTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+        {showCustom && (
+          <View style={styles.customDateRow}>
+            <TextInput style={styles.customDateInput} placeholder="DD/MM/YYYY" value={customFrom} onChangeText={setCustomFrom} placeholderTextColor={Colors.textLight} />
+            <Text style={{color:Colors.textSecondary,marginHorizontal:8}}>–</Text>
+            <TextInput style={styles.customDateInput} placeholder="DD/MM/YYYY" value={customTo} onChangeText={setCustomTo} placeholderTextColor={Colors.textLight} />
+          </View>
+        )}
 
         {/* Chart Type Selector */}
         <View style={styles.chartTypeContainer}>
@@ -577,6 +575,27 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
             </Text>
           )}
         </View>
+
+        {/* Top Products Bar Chart */}
+        {topProductsData.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Produk Terlaris</Text>
+            <View style={styles.card}>
+              {(() => {
+                const maxTx = Math.max(...topProductsData.map(p => p.tx_count), 1);
+                return topProductsData.map((p) => (
+                  <View key={p.id} style={styles.topBarRow}>
+                    <Text style={styles.topBarName} numberOfLines={1}>{p.name}</Text>
+                    <View style={styles.topBarTrack}>
+                      <View style={[styles.topBarFill, { width: `${(p.tx_count / maxTx) * 100}%` }]} />
+                    </View>
+                    <Text style={styles.topBarQty}>{p.tx_count}</Text>
+                  </View>
+                ));
+              })()}
+            </View>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -1071,4 +1090,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textLight,
   },
+
+  // Custom date range
+  customDateRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 },
+  customDateInput: {
+    flex: 1, height: 38, borderWidth: 1, borderColor: Colors.border, borderRadius: 8,
+    paddingHorizontal: 10, fontSize: 13, color: Colors.textDark, backgroundColor: Colors.white,
+  },
+
+  // Top bar chart
+  topBarRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  topBarName: { width: 100, fontSize: 12, color: Colors.textDark, fontWeight: '500' },
+  topBarTrack: { flex: 1, height: 14, backgroundColor: Colors.bgSecondary, borderRadius: 7, overflow: 'hidden', marginHorizontal: 8 },
+  topBarFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 7 },
+  topBarQty: { width: 30, fontSize: 12, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right' },
 });
