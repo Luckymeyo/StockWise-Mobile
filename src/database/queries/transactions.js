@@ -1,7 +1,4 @@
-/**
- * Transaction Database Queries
- * All operations for stock transactions (IN/OUT/ADJUST)
- */
+// Transaction database queries
 
 import { getDatabase } from '../index';
 import { getProductById, updateProductStock } from './products';
@@ -51,29 +48,39 @@ export const createStockTransaction = async (
       newStock = quantity; // Direct set for adjustments
     }
 
-    // Insert transaction record with batch info
-    const [result] = await db.executeSql(
-      `
-      INSERT INTO stock_transactions (
-        product_id, type, quantity, unit, notes, reference_no, balance_after,
-        batch_number, batch_expiry_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      [
-        productId,
-        type,
-        quantity,
-        product.unit,
-        notes,
-        referenceNo,
-        newStock,
-        batchNumber,
-        batchExpiryDate,
-      ]
-    );
-
-    // Update product stock
-    await updateProductStock(productId, newStock);
+    // Wrap INSERT + UPDATE in a single atomic transaction so a crash between
+    // the two statements cannot leave stock in an inconsistent state.
+    let insertId;
+    await new Promise((resolve, reject) => {
+      db.transaction(
+        (tx) => {
+          tx.executeSql(
+            `INSERT INTO stock_transactions (
+               product_id, type, quantity, unit, notes, reference_no, balance_after,
+               batch_number, batch_expiry_date
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              productId,
+              type,
+              quantity,
+              product.unit,
+              notes,
+              referenceNo,
+              newStock,
+              batchNumber,
+              batchExpiryDate,
+            ],
+            (_, result) => { insertId = result.insertId; }
+          );
+          tx.executeSql(
+            `UPDATE products SET current_stock = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`,
+            [newStock, productId]
+          );
+        },
+        (error) => reject(error),
+        () => resolve()
+      );
+    });
 
     console.log(
       `✅ Transaction created: ${type} ${quantity} ${product.unit} for ${product.name}${
@@ -82,7 +89,7 @@ export const createStockTransaction = async (
     );
 
     return {
-      id: result.insertId,
+      id: insertId,
       productId,
       type,
       quantity,
@@ -145,12 +152,14 @@ export const getProductTransactions = async (productId, limit = 50) => {
 export const getAllTransactions = async (
   dateFrom = null,
   dateTo = null,
-  type = null
+  type = null,
+  limit = 500,
+  offset = 0
 ) => {
   try {
     const db = await getDatabase();
     let query = `
-      SELECT 
+      SELECT
         st.*,
         p.name as product_name,
         p.photo_uri
@@ -175,7 +184,8 @@ export const getAllTransactions = async (
       params.push(type);
     }
 
-    query += ' ORDER BY st.transaction_date DESC LIMIT 100';
+    query += ' ORDER BY st.transaction_date DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
     const [result] = await db.executeSql(query, params);
 
@@ -316,12 +326,14 @@ export const getRecentTransactions = async (limit = 10) => {
 export const getAllTransactionsWithPricing = async (
   dateFrom = null,
   dateTo = null,
-  type = null
+  type = null,
+  limit = 500,
+  offset = 0
 ) => {
   try {
     const db = await getDatabase();
     let query = `
-      SELECT 
+      SELECT
         st.*,
         p.name as product_name,
         p.photo_uri,
@@ -348,7 +360,8 @@ export const getAllTransactionsWithPricing = async (
       params.push(type);
     }
 
-    query += ' ORDER BY st.transaction_date DESC LIMIT 100';
+    query += ' ORDER BY st.transaction_date DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
     const [result] = await db.executeSql(query, params);
 
@@ -564,6 +577,18 @@ export const deleteTransaction = async (id) => {
       revertedStock -= transaction.quantity; // Remove what was added
     } else if (transaction.type === 'OUT') {
       revertedStock += transaction.quantity; // Add back what was removed
+    } else if (transaction.type === 'ADJUST') {
+      // Restore the balance that existed just before this ADJUST by reading
+      // the balance_after of the transaction that preceded it.
+      const [prevResult] = await db.executeSql(
+        `SELECT balance_after FROM stock_transactions
+         WHERE product_id = ? AND id < ?
+         ORDER BY id DESC LIMIT 1`,
+        [transaction.product_id, id]
+      );
+      revertedStock = prevResult.rows.length > 0
+        ? prevResult.rows.item(0).balance_after
+        : 0;
     }
 
     // Prevent negative stock
@@ -571,11 +596,20 @@ export const deleteTransaction = async (id) => {
       throw new Error('Tidak dapat menghapus transaksi: stok akan menjadi negatif');
     }
 
-    // Delete transaction
-    await db.executeSql('DELETE FROM stock_transactions WHERE id = ?', [id]);
-
-    // Update product stock
-    await updateProductStock(transaction.product_id, revertedStock);
+    // Delete and revert stock atomically
+    await new Promise((resolve, reject) => {
+      db.transaction(
+        (tx) => {
+          tx.executeSql('DELETE FROM stock_transactions WHERE id = ?', [id]);
+          tx.executeSql(
+            `UPDATE products SET current_stock = ?, updated_at = datetime('now', 'localtime') WHERE id = ?`,
+            [revertedStock, transaction.product_id]
+          );
+        },
+        (error) => reject(error),
+        () => resolve()
+      );
+    });
 
     console.log(`✅ Transaction deleted and stock reverted`);
 

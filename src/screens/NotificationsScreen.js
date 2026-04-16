@@ -1,596 +1,154 @@
-import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Notifications screen - Clean & Minimal
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../styles/colors';
-import {
-  getAllNotifications,
-  getUnreadCount,
-  markAsRead,
-  markAllAsRead,
-  clearReadNotifications,
-  deleteNotification,
-  NotificationPriority,
-  checkLowStockAlerts,
-  checkExpiringAlerts,
-} from '../database/queries/notifications';
+import { getAllNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications, getUnreadCount } from '../database/queries/notifications';
 
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('ALL'); // ALL, ALERTS, ACTIVITY
-  
-  // Settings state
-  const [lowStockEnabled, setLowStockEnabled] = useState(true);
-  const [expiryEnabled, setExpiryEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    loadSettings();
-    loadNotifications();
-    checkAlerts(); // Check for new alerts on mount
-  }, []);
-
-  // Reload on screen focus
-  useFocusEffect(
-    React.useCallback(() => {
-      loadSettings();
-      loadNotifications();
-      return () => {};
-    }, [])
-  );
-
-  const loadSettings = async () => {
-    try {
-      const [savedLowStock, savedExpiry] = await Promise.all([
-        AsyncStorage.getItem('lowStockEnabled'),
-        AsyncStorage.getItem('expiryEnabled'),
-      ]);
-      
-      // AsyncStorage stores strings, default to true if not set
-      setLowStockEnabled(savedLowStock !== 'false');
-      setExpiryEnabled(savedExpiry !== 'false');
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  };
+  useFocusEffect(useCallback(() => { loadNotifications(); }, []));
 
   const loadNotifications = async () => {
     try {
-      const data = await getAllNotifications();
-      setNotifications(data);
-      const count = await getUnreadCount();
-      setUnreadCount(count);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    }
+      setLoading(true);
+      const [all, count] = await Promise.all([getAllNotifications(), getUnreadCount()]);
+      setNotifications(all); setUnreadCount(count);
+    } catch (e) { console.error('Error loading notifications:', e); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
-  const checkAlerts = async () => {
-    try {
-      await checkLowStockAlerts();
-      await checkExpiringAlerts();
-      await loadNotifications(); // Reload to show new alerts
-    } catch (error) {
-      console.error('Error checking alerts:', error);
-    }
-  };
+  const onRefresh = () => { setRefreshing(true); loadNotifications(); };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await checkAlerts(); // Check for new alerts
-    await loadNotifications();
-    setRefreshing(false);
-  };
-
-  const handleNotificationPress = async (notification) => {
-    // Mark as read
-    if (!notification.is_read) {
-      await markAsRead(notification.id);
-      loadNotifications();
-    }
-
-    // Navigate to product detail if available
-    if (notification.product_id) {
-      navigation.navigate('Inventory', {
-        screen: 'ItemDetail',
-        params: { productId: notification.product_id },
-      });
-    }
+  const handleRead = async (id) => {
+    try { await markAsRead(id); loadNotifications(); } catch(e) {}
   };
 
   const handleMarkAllRead = async () => {
-    if (unreadCount === 0) return;
-    
-    Alert.alert(
-      'Tandai Semua Dibaca',
-      'Tandai semua notifikasi sebagai sudah dibaca?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Tandai',
-          onPress: async () => {
-            await markAllAsRead();
-            loadNotifications();
-          },
-        },
-      ]
-    );
+    try { await markAllAsRead(); loadNotifications(); } catch(e) {}
   };
 
-  const handleClearRead = async () => {
-    const readCount = notifications.filter(n => n.is_read).length;
-    if (readCount === 0) {
-      Alert.alert('Info', 'Tidak ada notifikasi yang sudah dibaca');
-      return;
-    }
-
-    Alert.alert(
-      'Hapus Notifikasi',
-      `Hapus ${readCount} notifikasi yang sudah dibaca?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: async () => {
-            await clearReadNotifications();
-            loadNotifications();
-          },
-        },
-      ]
-    );
+  const handleDelete = (id) => {
+    Alert.alert('Hapus', 'Hapus notifikasi ini?', [
+      {text:'Batal',style:'cancel'},
+      {text:'Hapus',style:'destructive',onPress: async()=>{try{await deleteNotification(id);loadNotifications();}catch(e){}}},
+    ]);
   };
 
-  const getFilteredNotifications = () => {
-    let filtered = notifications;
-    
-    // Filter by category (ALL, ALERTS, ACTIVITY)
-    if (filter === 'ALERTS') {
-      filtered = filtered.filter(n => n.priority === NotificationPriority.HIGH);
-    } else if (filter === 'ACTIVITY') {
-      filtered = filtered.filter(
-        n => n.priority === NotificationPriority.MEDIUM || n.priority === NotificationPriority.LOW
-      );
-    }
-    
-    // Filter based on settings
-    filtered = filtered.filter(notification => {
-      // Filter out LOW_STOCK notifications if disabled
-      if (notification.type === 'LOW_STOCK' && !lowStockEnabled) {
-        return false;
-      }
-      // Filter out EXPIRING_SOON notifications if disabled
-      if (notification.type === 'EXPIRING_SOON' && !expiryEnabled) {
-        return false;
-      }
-      return true;
-    });
-    
-    return filtered;
+  const handleClearAll = () => {
+    Alert.alert('Hapus Semua', 'Hapus semua notifikasi?', [
+      {text:'Batal',style:'cancel'},
+      {text:'Hapus',style:'destructive',onPress: async()=>{try{await deleteAllNotifications();loadNotifications();}catch(e){}}},
+    ]);
   };
 
-  const groupNotificationsByDate = (notifs) => {
-    const groups = {};
-    
-    notifs.forEach(notification => {
-      const dateKey = getDateLabel(notification.created_at);
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(notification);
-    });
-
-    return groups;
-  };
-
-  const getDateLabel = (dateString) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    const isToday = date.toDateString() === today.toDateString();
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-
-    if (isToday) return 'Hari Ini';
-    if (isYesterday) return 'Kemarin';
-    
-    // This week
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    if (date > weekAgo) {
-      const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-      return days[date.getDay()];
-    }
-
-    // Older
-    const months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-    ];
-    return `${date.getDate()} ${months[date.getMonth()]}`;
-  };
-
-  const getTimeString = (dateString) => {
-    const date = new Date(dateString);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case NotificationPriority.HIGH:
-        return Colors.danger;
-      case NotificationPriority.MEDIUM:
-        return Colors.cardCyan;
-      case NotificationPriority.LOW:
-        return Colors.textLight;
-      default:
-        return Colors.textLight;
+  const getIcon = (type) => {
+    switch(type) {
+      case 'LOW_STOCK': return { name:'alert-circle-outline', color:Colors.warning, bg:Colors.warningBg };
+      case 'EXPIRY_WARNING': return { name:'clock-alert-outline', color:Colors.danger, bg:Colors.dangerBg };
+      case 'STOCK_IN': return { name:'arrow-down', color:Colors.success, bg:Colors.successBg };
+      case 'STOCK_OUT': return { name:'arrow-up', color:Colors.danger, bg:Colors.dangerBg };
+      case 'PRODUCT_ADDED': return { name:'plus-circle-outline', color:Colors.primary, bg:Colors.primaryLight };
+      default: return { name:'bell-outline', color:Colors.primary, bg:Colors.primaryLight };
     }
   };
 
-  const renderNotification = ({ item }) => {
-    const priorityColor = getPriorityColor(item.priority);
-    const isUnread = !item.is_read;
+  const formatTime = (dateString) => {
+    const d = new Date(dateString);
+    const now = new Date();
+    const diff = Math.floor((now - d) / 60000);
+    if (diff < 1) return 'Baru saja';
+    if (diff < 60) return `${diff} menit lalu`;
+    if (diff < 1440) return `${Math.floor(diff/60)} jam lalu`;
+    if (diff < 2880) return 'Kemarin';
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  };
 
+  const renderItem = ({item}) => {
+    const icon = getIcon(item.type);
     return (
-      <TouchableOpacity
-        style={[
-          styles.notificationCard,
-          isUnread && styles.unreadCard,
-        ]}
-        onPress={() => handleNotificationPress(item)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.iconContainer, { backgroundColor: priorityColor + '20' }]}>
-          <Text style={styles.icon}>{item.icon}</Text>
+      <TouchableOpacity style={[s.notifCard, !item.is_read && s.unread]} onPress={() => handleRead(item.id)} onLongPress={() => handleDelete(item.id)} activeOpacity={0.7}>
+        <View style={[s.notifIcon, {backgroundColor:icon.bg}]}>
+          <MaterialCommunityIcons name={icon.name} size={20} color={icon.color} />
         </View>
-
-        <View style={styles.contentContainer}>
-          <View style={styles.headerRow}>
-            <Text style={[styles.title, isUnread && styles.unreadText]}>
-              {item.title}
-            </Text>
-            <Text style={styles.time}>{getTimeString(item.created_at)}</Text>
-          </View>
-
-          <Text style={styles.message} numberOfLines={2}>
-            {item.message}
-          </Text>
-
-          {item.priority === NotificationPriority.HIGH && (
-            <View style={[styles.badge, { backgroundColor: priorityColor }]}>
-              <Text style={styles.badgeText}>PENTING</Text>
-            </View>
-          )}
+        <View style={s.notifContent}>
+          <Text style={s.notifTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={s.notifMessage} numberOfLines={2}>{item.message}</Text>
+          <Text style={s.notifTime}>{formatTime(item.created_at)}</Text>
         </View>
-
-        {isUnread && <View style={styles.unreadDot} />}
+        {!item.is_read && <View style={s.unreadDot} />}
       </TouchableOpacity>
     );
   };
 
-  const renderGroupedList = () => {
-    const filtered = getFilteredNotifications();
-    const grouped = groupNotificationsByDate(filtered);
-    const sections = Object.keys(grouped);
-
-    if (sections.length === 0) {
-      // Check if both notification types are disabled
-      const bothDisabled = !lowStockEnabled && !expiryEnabled;
-      
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🔔</Text>
-          <Text style={styles.emptyTitle}>Tidak Ada Notifikasi</Text>
-          <Text style={styles.emptyText}>
-            {bothDisabled
-              ? 'Notifikasi dinonaktifkan di Pengaturan'
-              : filter === 'ALERTS'
-              ? 'Tidak ada peringatan saat ini'
-              : filter === 'ACTIVITY'
-              ? 'Tidak ada aktivitas'
-              : 'Notifikasi akan muncul di sini'}
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <FlatList
-        data={sections}
-        keyExtractor={(item) => item}
-        renderItem={({ item: dateLabel }) => (
-          <View>
-            <View style={styles.dateHeader}>
-              <Text style={styles.dateLabel}>{dateLabel}</Text>
-            </View>
-            {grouped[dateLabel].map(notification => (
-              <View key={notification.id}>
-                {renderNotification({ item: notification })}
-              </View>
-            ))}
-          </View>
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[Colors.cardBlue]}
-          />
-        }
-        contentContainerStyle={styles.listContent}
-      />
-    );
-  };
-
-  const alertCount = notifications.filter(n => n.priority === NotificationPriority.HIGH).length;
-  const activityCount = notifications.filter(
-    n => n.priority === NotificationPriority.MEDIUM || n.priority === NotificationPriority.LOW
-  ).length;
+  const renderEmpty = () => (
+    <View style={s.emptyContainer}>
+      <MaterialCommunityIcons name="bell-off-outline" size={56} color={Colors.textLight} />
+      <Text style={s.emptyTitle}>Belum Ada Notifikasi</Text>
+      <Text style={s.emptyText}>Notifikasi akan muncul saat ada stok rendah atau produk kadaluarsa</Text>
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifikasi</Text>
-        <View style={styles.headerActions}>
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
+      <View style={s.header}>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textDark} />
+        </TouchableOpacity>
+        <Text style={s.headerTitle}>Notifikasi</Text>
+        <View style={s.headerActions}>
           {unreadCount > 0 && (
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleMarkAllRead}
-            >
-              <Text style={styles.headerButtonText}>Tandai Dibaca</Text>
+            <TouchableOpacity onPress={handleMarkAllRead} activeOpacity={0.7} style={s.headerAction}>
+              <MaterialCommunityIcons name="check-all" size={20} color={Colors.primary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleClearRead}
-          >
-            <Text style={styles.headerButtonText}>Bersihkan</Text>
-          </TouchableOpacity>
+          {notifications.length > 0 && (
+            <TouchableOpacity onPress={handleClearAll} activeOpacity={0.7} style={s.headerAction}>
+              <MaterialCommunityIcons name="delete-outline" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Unread Badge */}
       {unreadCount > 0 && (
-        <View style={styles.unreadBanner}>
-          <Text style={styles.unreadBannerText}>
-            {unreadCount} notifikasi belum dibaca
-          </Text>
+        <View style={s.unreadBanner}>
+          <Text style={s.unreadBannerText}>{unreadCount} notifikasi belum dibaca</Text>
         </View>
       )}
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterTab, filter === 'ALL' && styles.activeTab]}
-          onPress={() => setFilter('ALL')}
-        >
-          <Text style={[styles.filterText, filter === 'ALL' && styles.activeFilterText]}>
-            Semua ({notifications.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterTab, filter === 'ALERTS' && styles.activeTab]}
-          onPress={() => setFilter('ALERTS')}
-        >
-          <Text style={[styles.filterText, filter === 'ALERTS' && styles.activeFilterText]}>
-            Peringatan ({alertCount})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterTab, filter === 'ACTIVITY' && styles.activeTab]}
-          onPress={() => setFilter('ACTIVITY')}
-        >
-          <Text style={[styles.filterText, filter === 'ACTIVITY' && styles.activeFilterText]}>
-            Aktivitas ({activityCount})
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Notification List */}
-      {renderGroupedList()}
+      <FlatList data={notifications} renderItem={renderItem} keyExtractor={item => item.id.toString()}
+        contentContainerStyle={s.list} ListEmptyComponent={renderEmpty}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+        showsVerticalScrollIndicator={false} />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
-  header: {
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: Colors.textDark,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  headerButtonText: {
-    color: Colors.cardBlue,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  unreadBanner: {
-    backgroundColor: Colors.cardBlue + '15',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  unreadBannerText: {
-    color: Colors.cardBlue,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    backgroundColor: Colors.white,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  filterTab: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: Colors.bg,
-    alignItems: 'center',
-  },
-  activeTab: {
-    backgroundColor: Colors.cardBlue,
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textLight,
-  },
-  activeFilterText: {
-    color: Colors.white,
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  dateHeader: {
-    backgroundColor: Colors.bg,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  dateLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textLight,
-    textTransform: 'uppercase',
-  },
-  notificationCard: {
-    backgroundColor: Colors.white,
-    marginHorizontal: 16,
-    marginVertical: 4,
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-  },
-  unreadCard: {
-    borderColor: Colors.cardBlue,
-    borderLeftWidth: 4,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 22,
-  },
-  contentContainer: {
-    flex: 1,
-    gap: 4,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textDark,
-    flex: 1,
-    marginRight: 8,
-  },
-  unreadText: {
-    fontWeight: '700',
-  },
-  time: {
-    fontSize: 12,
-    color: Colors.textLight,
-  },
-  message: {
-    fontSize: 14,
-    color: Colors.textLight,
-    lineHeight: 20,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    marginTop: 4,
-  },
-  badgeText: {
-    color: Colors.white,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.cardBlue,
-    position: 'absolute',
-    right: 12,
-    top: 12,
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textDark,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: Colors.textLight,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+const s = StyleSheet.create({
+  safe:{flex:1,backgroundColor:Colors.bg},
+  header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingVertical:14,backgroundColor:Colors.white,borderBottomWidth:1,borderBottomColor:Colors.border},
+  backBtn:{width:40,height:40,borderRadius:20,backgroundColor:Colors.bg,alignItems:'center',justifyContent:'center'},
+  headerTitle:{fontSize:18,fontWeight:'700',color:Colors.textDark},
+  headerActions:{flexDirection:'row',gap:4}, headerAction:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center'},
+  unreadBanner:{backgroundColor:Colors.primaryLight,paddingVertical:8,paddingHorizontal:20},
+  unreadBannerText:{fontSize:12,fontWeight:'600',color:Colors.primary,textAlign:'center'},
+  list:{padding:16,paddingBottom:40},
+  notifCard:{flexDirection:'row',alignItems:'flex-start',backgroundColor:Colors.white,borderRadius:14,padding:14,marginBottom:8,borderWidth:1,borderColor:Colors.cardBorder},
+  unread:{backgroundColor:Colors.primaryLight,borderColor:Colors.primarySoft},
+  notifIcon:{width:40,height:40,borderRadius:12,alignItems:'center',justifyContent:'center',marginRight:12},
+  notifContent:{flex:1},
+  notifTitle:{fontSize:14,fontWeight:'600',color:Colors.textDark,marginBottom:2},
+  notifMessage:{fontSize:13,color:Colors.textSecondary,lineHeight:18,marginBottom:4},
+  notifTime:{fontSize:11,color:Colors.textLight},
+  unreadDot:{width:8,height:8,borderRadius:4,backgroundColor:Colors.primary,marginTop:6,marginLeft:8},
+  emptyContainer:{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:80},
+  emptyTitle:{fontSize:18,fontWeight:'600',color:Colors.textDark,marginTop:16,marginBottom:6},
+  emptyText:{fontSize:13,color:Colors.textSecondary,textAlign:'center',paddingHorizontal:40},
 });

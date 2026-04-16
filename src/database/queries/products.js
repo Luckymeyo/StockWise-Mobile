@@ -1,7 +1,4 @@
-/**
- * Product Database Queries
- * All CRUD operations for products/items
- */
+// Product database queries
 
 import { getDatabase } from '../index';
 

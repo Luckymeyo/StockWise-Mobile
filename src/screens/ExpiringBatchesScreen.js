@@ -1,9 +1,6 @@
-/**
- * Expiring Batches Screen
- * Shows all product batches that are expiring within 30 days
- */
+// Expiring batches screen
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getExpiringBatches } from '../database/batchTracking';
 
 export default function ExpiringBatchesScreen({ navigation }) {
@@ -54,9 +52,9 @@ export default function ExpiringBatchesScreen({ navigation }) {
   };
 
   const getUrgencyColor = (days) => {
-    if (days <= 7) return '#EF4444'; // Red - Very urgent
-    if (days <= 14) return '#F59E0B'; // Orange - Urgent
-    return '#10B981'; // Green - Soon
+    if (days <= 7) return Colors.danger; // Red - Very urgent
+    if (days <= 14) return Colors.warning; // Orange - Urgent
+    return Colors.success; // Green - Soon
   };
 
   const getUrgencyLabel = (days) => {
@@ -117,12 +115,12 @@ export default function ExpiringBatchesScreen({ navigation }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Kembali</Text>
+            <MaterialCommunityIcons name="arrow-left" size={18} color={Colors.textDark} /><Text style={styles.backButton}> Kembali</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Batch Kadaluarsa</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.cardBlue} />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Memuat...</Text>
         </View>
       </SafeAreaView>
@@ -133,7 +131,7 @@ export default function ExpiringBatchesScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Kembali</Text>
+          <MaterialCommunityIcons name="arrow-left" size={18} color={Colors.textDark} /><Text style={styles.backButton}> Kembali</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Batch Kadaluarsa</Text>
         <Text style={styles.subtitle}>
@@ -143,7 +141,7 @@ export default function ExpiringBatchesScreen({ navigation }) {
 
       {batches.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>✅</Text>
+          <MaterialCommunityIcons name="check-circle-outline" size={48} color={Colors.success} />
           <Text style={styles.emptyTitle}>Tidak Ada Batch Kadaluarsa</Text>
           <Text style={styles.emptyText}>
             Semua batch aman dalam 30 hari ke depan
@@ -189,7 +187,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     fontSize: 16,
-    color: Colors.cardBlue,
+    color: Colors.primary,
     fontWeight: '600',
     marginBottom: 8,
   },

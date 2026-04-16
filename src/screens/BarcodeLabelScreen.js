@@ -1,7 +1,4 @@
-/**
- * Barcode Label Generator Screen
- * Generate printable barcode labels for products
- */
+// Barcode label generator screen
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -15,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getProductById } from '../database/queries/products';
 import Barcode from 'react-native-barcode-builder';
 import ViewShot from 'react-native-view-shot';
@@ -26,9 +24,8 @@ export default function BarcodeLabelScreen({ route, navigation }) {
   const [barcodeFormat, setBarcodeFormat] = useState('CODE128'); // CODE128, EAN13
   const viewShotRef = useRef();
 
-  useEffect(() => {
-    loadProduct();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadProduct(); }, []);
 
   const loadProduct = async () => {
     try {
@@ -93,7 +90,7 @@ export default function BarcodeLabelScreen({ route, navigation }) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Label Barcode</Text>
         <View style={styles.headerSpacer} />
@@ -102,7 +99,7 @@ export default function BarcodeLabelScreen({ route, navigation }) {
       <ScrollView style={styles.content}>
         {/* Preview Section */}
         <View style={styles.previewSection}>
-          <Text style={styles.sectionTitle}>👁️ Preview Label</Text>
+          <Text style={styles.sectionTitle}>Preview Label</Text>
           
           <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
             <View style={[
@@ -142,7 +139,7 @@ export default function BarcodeLabelScreen({ route, navigation }) {
 
         {/* Label Size */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📏 Ukuran Label</Text>
+          <Text style={styles.sectionTitle}>Ukuran Label</Text>
           <View style={styles.optionsRow}>
             <TouchableOpacity
               style={[styles.option, labelSize === 'small' && styles.optionActive]}
@@ -176,7 +173,7 @@ export default function BarcodeLabelScreen({ route, navigation }) {
         {/* Barcode Format */}
         {product.barcode && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔢 Format Barcode</Text>
+            <Text style={styles.sectionTitle}>Format Barcode</Text>
             <View style={styles.optionsRow}>
               <TouchableOpacity
                 style={[styles.option, barcodeFormat === 'CODE128' && styles.optionActive]}
@@ -205,14 +202,14 @@ export default function BarcodeLabelScreen({ route, navigation }) {
             style={styles.actionButton}
             onPress={handleCaptureAndShare}
           >
-            <Text style={styles.actionButtonText}>📤 Bagikan Label</Text>
+            <Text style={styles.actionButtonText}>Bagikan Label</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
             style={[styles.actionButton, styles.actionButtonSecondary]}
             onPress={handleGeneratePDF}
           >
-            <Text style={styles.actionButtonTextSecondary}>📄 Export PDF</Text>
+            <Text style={styles.actionButtonTextSecondary}>Export PDF</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -240,13 +237,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -255,9 +252,9 @@ const styles = StyleSheet.create({
     color: Colors.white,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: Colors.white,
+    color: Colors.textDark,
   },
   headerSpacer: {
     width: 40,
@@ -338,7 +335,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optionActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
     borderColor: Colors.primary,
   },
   optionText: {
@@ -354,7 +351,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   actionButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

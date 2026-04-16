@@ -1,7 +1,4 @@
-/**
- * Database Migration Helper
- * Adds batch tracking support to existing database
- */
+// Database migration helper
 
 import { getDatabase } from './index';
 
@@ -41,10 +38,18 @@ export const migrateToBatchTracking = async () => {
       console.log('✅ Added batch_expiry_date column');
     }
 
-    // Create batches view for easy querying
+    // Drop and recreate the view so the improved definition takes effect on
+    // existing databases that already have the old view from a prior install.
+    await db.executeSql('DROP VIEW IF EXISTS product_batches');
+
+    // Improved product_batches view:
+    //  • ADJUST transactions are excluded from per-batch accounting because
+    //    they set the global product stock, not individual batch quantities.
+    //  • NULLS LAST on batch_expiry_date so batches without an expiry date
+    //    are consumed after all dated batches (prevents NULL stealing FIFO).
     await db.executeSql(`
       CREATE VIEW IF NOT EXISTS product_batches AS
-      SELECT 
+      SELECT
         st.product_id,
         st.batch_number,
         st.batch_expiry_date,
@@ -52,11 +57,12 @@ export const migrateToBatchTracking = async () => {
         p.unit,
         SUM(CASE WHEN st.type = 'IN' THEN st.quantity ELSE 0 END) as total_in,
         SUM(CASE WHEN st.type = 'OUT' THEN st.quantity ELSE 0 END) as total_out,
-        (SUM(CASE WHEN st.type = 'IN' THEN st.quantity ELSE 0 END) - 
+        (SUM(CASE WHEN st.type = 'IN' THEN st.quantity ELSE 0 END) -
          SUM(CASE WHEN st.type = 'OUT' THEN st.quantity ELSE 0 END)) as current_quantity
       FROM stock_transactions st
       LEFT JOIN products p ON st.product_id = p.id
       WHERE st.batch_number IS NOT NULL
+        AND st.type IN ('IN', 'OUT')
       GROUP BY st.product_id, st.batch_number, st.batch_expiry_date
       HAVING current_quantity > 0
     `);
@@ -78,7 +84,7 @@ export const getProductBatches = async (productId) => {
     const db = await getDatabase();
     const [result] = await db.executeSql(
       `
-      SELECT 
+      SELECT
         batch_number,
         batch_expiry_date,
         product_name,
@@ -87,7 +93,8 @@ export const getProductBatches = async (productId) => {
         CAST(julianday(batch_expiry_date) - julianday('now') AS INTEGER) as days_until_expiry
       FROM product_batches
       WHERE product_id = ?
-      ORDER BY batch_expiry_date ASC
+      ORDER BY CASE WHEN batch_expiry_date IS NULL THEN 1 ELSE 0 END ASC,
+               batch_expiry_date ASC
     `,
       [productId]
     );
@@ -149,14 +156,15 @@ export const getOldestBatch = async (productId) => {
     const db = await getDatabase();
     const [result] = await db.executeSql(
       `
-      SELECT 
+      SELECT
         batch_number,
         batch_expiry_date,
         current_quantity,
         unit
       FROM product_batches
       WHERE product_id = ?
-      ORDER BY batch_expiry_date ASC
+      ORDER BY CASE WHEN batch_expiry_date IS NULL THEN 1 ELSE 0 END ASC,
+               batch_expiry_date ASC
       LIMIT 1
     `,
       [productId]

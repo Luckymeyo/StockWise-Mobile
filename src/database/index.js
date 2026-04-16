@@ -1,58 +1,61 @@
-/**
- * Database Connection & Initialization
- * Uses react-native-sqlite-storage
- */
+// Database connection & initialization
 
 import SQLite from 'react-native-sqlite-storage';
 import { createTablesSQL, defaultCategories } from './schema';
 import { migrateToBatchTracking } from './batchTracking';
 
-// Enable promise API for cleaner async/await syntax
 SQLite.enablePromise(true);
 
 let dbInstance = null;
+// Single in-flight promise so concurrent callers share the same open attempt
+// and we never open two connections simultaneously.
+let dbOpenPromise = null;
 
-/**
- * Get or create database instance
- */
+// Get or create database
 export const getDatabase = async () => {
   if (dbInstance) {
     return dbInstance;
   }
 
-  try {
-    dbInstance = await SQLite.openDatabase({
-      name: 'stockwise.db',
-      location: 'default',
+  if (dbOpenPromise) {
+    return dbOpenPromise;
+  }
+
+  dbOpenPromise = SQLite.openDatabase({
+    name: 'stockwise.db',
+    location: 'default',
+  })
+    .then((db) => {
+      dbInstance = db;
+      dbOpenPromise = null;
+      console.log('✅ Database opened successfully');
+      return db;
+    })
+    .catch((error) => {
+      dbOpenPromise = null;
+      console.error('❌ Error opening database:', error);
+      throw error;
     });
 
-    console.log('✅ Database opened successfully');
-    return dbInstance;
-  } catch (error) {
-    console.error('❌ Error opening database:', error);
-    throw error;
-  }
+  return dbOpenPromise;
 };
 
-/**
- * Initialize database tables
- */
+// Initialize database tables
 export const initDatabase = async () => {
   try {
     const db = await getDatabase();
 
-    // Split SQL statements and execute one by one
+    // Split and execute SQL statements
     const sqlStatements = createTablesSQL
       .split(';')
       .map(statement => statement.trim())
       .filter(statement => statement.length > 0);
 
-    // Execute each statement
     for (const statement of sqlStatements) {
       try {
         await db.executeSql(statement);
       } catch (err) {
-        // Ignore "table already exists" errors
+        // Ignore table already exists errors
         if (!err.message.includes('already exists')) {
           console.error('Error executing SQL:', statement.substring(0, 100));
           throw err;
@@ -62,7 +65,7 @@ export const initDatabase = async () => {
     
     console.log('✅ Tables created successfully');
 
-    // Insert default categories if not exists
+    // Insert default categories
     await insertDefaultCategories(db);
 
     // Run batch tracking migration
@@ -75,17 +78,15 @@ export const initDatabase = async () => {
   }
 };
 
-/**
- * Insert default categories
- */
+// Insert default categories
 const insertDefaultCategories = async (db) => {
   try {
-    // Check if categories already exist
+    // Check if categories exist
     const [result] = await db.executeSql('SELECT COUNT(*) as count FROM categories');
     const count = result.rows.item(0).count;
 
     if (count === 0) {
-      // Insert default categories
+      // Insert defaults
       for (const category of defaultCategories) {
         await db.executeSql(
           'INSERT INTO categories (name, icon) VALUES (?, ?)',
@@ -99,20 +100,17 @@ const insertDefaultCategories = async (db) => {
   }
 };
 
-/**
- * Close database connection
- */
+// Close database connection
 export const closeDatabase = async () => {
   if (dbInstance) {
     await dbInstance.close();
     dbInstance = null;
+    dbOpenPromise = null;
     console.log('✅ Database closed');
   }
 };
 
-/**
- * Drop all tables (use with caution - for development only)
- */
+// Drop all tables (development only)
 export const dropAllTables = async () => {
   const db = await getDatabase();
   const tables = [
@@ -131,9 +129,7 @@ export const dropAllTables = async () => {
   console.log('⚠️ All tables dropped');
 };
 
-/**
- * Execute raw SQL query
- */
+// Execute raw SQL query
 export const executeQuery = async (sql, params = []) => {
   try {
     const db = await getDatabase();
@@ -145,9 +141,7 @@ export const executeQuery = async (sql, params = []) => {
   }
 };
 
-/**
- * Execute transaction with multiple queries
- */
+// Execute transaction with multiple queries
 export const executeTransaction = async (callback) => {
   const db = await getDatabase();
   return new Promise((resolve, reject) => {

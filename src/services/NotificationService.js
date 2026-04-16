@@ -1,10 +1,6 @@
-/**
- * NotificationService.js
- * Handles all notification operations for StockWise Mobile
- * Location: src/services/NotificationService.js
- */
+// Notification service
 
-import notifee, { AndroidImportance, TriggerType } from '@notifee/react-native';
+import notifee, { AndroidImportance, EventType, TriggerType } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
@@ -154,13 +150,21 @@ export async function sendLocalNotification(notification) {
 
     console.log('✅ Notification sent:', notificationId);
     
-    // Also save to database for in-app display
-    // Fixed: Added null check for data object
+    // Save to in-app notification database for display in NotificationsScreen.
+    // Grouped alerts (no productId) are saved with a generic product entry so
+    // they still appear in the in-app list.
     if (data && data.productId && data.productName) {
       await createNotification(type, {
         productId: data.productId,
         productName: data.productName,
         quantity: data.quantity,
+        details: data,
+      });
+    } else if (data && data.grouped) {
+      await createNotification(type, {
+        productId: null,
+        productName: body,
+        quantity: data.count || null,
         details: data,
       });
     }
@@ -330,7 +334,7 @@ export async function clearBadgeCount() {
 export function setupNotificationHandler(navigation) {
   // Handle notification press when app is in foreground or background
   notifee.onForegroundEvent(({ type, detail }) => {
-    if (type === 1) { // Notification pressed
+    if (type === EventType.PRESS) {
       console.log('Notification pressed:', detail);
       
       const { data } = detail.notification;

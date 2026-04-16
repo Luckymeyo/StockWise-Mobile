@@ -1,7 +1,4 @@
-/**
- * PickerModal Component
- * Reusable modal for selecting from a list of options
- */
+// Picker modal component
 
 import React from 'react';
 import {
@@ -152,7 +149,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg,
   },
   optionItemSelected: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.primary,
   },
   optionIcon: {
     fontSize: 24,

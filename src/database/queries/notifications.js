@@ -1,7 +1,4 @@
-/**
- * Notification Management Functions
- * Handles all notification CRUD operations
- */
+// Notification management functions
 
 import { getDatabase } from '../index';
 

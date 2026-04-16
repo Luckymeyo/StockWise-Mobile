@@ -1,7 +1,4 @@
-/**
- * Item Detail Screen
- * Shows complete product information with actions
- */
+// Item detail screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -16,21 +13,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getProductById, deleteProduct } from '../database/queries/products';
+import Toast from 'react-native-toast-message';
 
 export default function ItemDetailScreen({ route, navigation }) {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadProduct();
-  }, []);
-
-  // Reload product when screen comes into focus (after Stock In/Out)
+  // useFocusEffect handles both initial mount and returning from StockIn/Out.
+  // The standalone useEffect is removed to prevent the double-load on mount.
   useFocusEffect(
     React.useCallback(() => {
       loadProduct();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productId])
   );
 
@@ -63,9 +60,8 @@ export default function ItemDetailScreen({ route, navigation }) {
           onPress: async () => {
             try {
               await deleteProduct(productId);
-              Alert.alert('Berhasil', 'Produk berhasil dihapus', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
+              Toast.show({ type: 'success', text1: 'Berhasil', text2: 'Produk berhasil dihapus' });
+              navigation.goBack();
             } catch (error) {
               Alert.alert('Error', 'Gagal menghapus produk');
             }
@@ -86,7 +82,7 @@ export default function ItemDetailScreen({ route, navigation }) {
   };
 
   const formatCurrency = (value) => {
-    if (!value || value === 0) return '-';
+    if (value === null || value === undefined || value === 0) return '-';
     return `Rp ${parseFloat(value).toLocaleString('id-ID')}`;
   };
 
@@ -101,20 +97,27 @@ export default function ItemDetailScreen({ route, navigation }) {
 
   const getStockStatus = () => {
     if (!product) return { text: '-', color: Colors.textLight };
-    
-    if (product.current_stock <= product.min_stock_threshold) {
-      return { text: 'Stok Rendah', color: '#EF4444' };
-    } else if (product.current_stock <= product.min_stock_threshold * 1.5) {
-      return { text: 'Stok Menipis', color: '#F59E0B' };
+
+    const currentStock = product.current_stock || 0;
+    const minStock = product.min_stock_threshold || 0;
+
+    if (minStock > 0 && currentStock <= minStock) {
+      return { text: 'Stok Rendah', color: Colors.danger };
+    } else if (minStock > 0 && currentStock <= minStock * 1.5) {
+      return { text: 'Stok Menipis', color: Colors.warning };
     } else {
-      return { text: 'Stok Aman', color: '#10B981' };
+      return { text: 'Stok Aman', color: Colors.success };
     }
   };
 
   const calculateMargin = () => {
-    if (!product || !product.purchase_price || !product.selling_price) return '-';
-    const margin = product.selling_price - product.purchase_price;
-    const percentage = ((margin / product.purchase_price) * 100).toFixed(0);
+    if (!product) return '-';
+    const purchase = product.purchase_price || 0;
+    const selling = product.selling_price || 0;
+    if (purchase <= 0 || selling <= 0) return '-';
+    
+    const margin = selling - purchase;
+    const percentage = ((margin / purchase) * 100).toFixed(0);
     return `${formatCurrency(margin)} (${percentage}%)`;
   };
 
@@ -142,6 +145,10 @@ export default function ItemDetailScreen({ route, navigation }) {
   }
 
   const stockStatus = getStockStatus();
+  const currentStock = product.current_stock || 0;
+  const minStock = product.min_stock_threshold || 0;
+  const purchasePrice = product.purchase_price || 0;
+  const sellingPrice = product.selling_price || 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -162,31 +169,31 @@ export default function ItemDetailScreen({ route, navigation }) {
               <Image source={{ uri: product.photo_uri }} style={styles.productImage} />
             ) : (
               <View style={styles.imagePlaceholder}>
-                <Text style={styles.imagePlaceholderIcon}>📦</Text>
+                <Text style={styles.imagePlaceholderIcon}></Text>
               </View>
             )}
 
             <Text style={styles.productName}>{product.name}</Text>
-            {product.sku && <Text style={styles.productSku}>SKU: {product.sku}</Text>}
-            {product.barcode && <Text style={styles.productBarcode}>{product.barcode}</Text>}
+            {product.sku ? <Text style={styles.productSku}>SKU: {product.sku}</Text> : null}
+            {product.barcode ? <Text style={styles.productBarcode}>{product.barcode}</Text> : null}
           </View>
 
           {/* Stock Information */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📦 INFORMASI STOK</Text>
+            <Text style={styles.sectionTitle}> INFORMASI STOK</Text>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Stok Saat Ini</Text>
               <Text style={[styles.infoValue, { color: stockStatus.color, fontWeight: '700' }]}>
-                {product.current_stock} {product.unit}
-                {product.current_stock <= product.min_stock_threshold && ' ⚠️'}
+                {String(currentStock)} {product.unit || 'pcs'}
+                {minStock > 0 && currentStock <= minStock ? '' : ''}
               </Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Minimum Stok</Text>
               <Text style={styles.infoValue}>
-                {product.min_stock_threshold || 0} {product.unit}
+                {String(minStock)} {product.unit || 'pcs'}
               </Text>
             </View>
 
@@ -200,45 +207,46 @@ export default function ItemDetailScreen({ route, navigation }) {
 
           {/* Price Information */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💰 HARGA</Text>
+            <Text style={styles.sectionTitle}> HARGA</Text>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Harga Beli</Text>
-              <Text style={styles.infoValue}>{formatCurrency(product.purchase_price)}</Text>
+              <Text style={styles.infoValue}>{formatCurrency(purchasePrice)}</Text>
             </View>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Harga Jual</Text>
-              <Text style={[styles.infoValue, { color: Colors.cardBlue, fontWeight: '600' }]}>
-                {formatCurrency(product.selling_price)}
+              <Text style={[styles.infoValue, { color: Colors.primary, fontWeight: '600' }]}>
+                {formatCurrency(sellingPrice)}
               </Text>
             </View>
 
-            {product.purchase_price && product.selling_price && (
+            {/* FIXED: Use > 0 check instead of truthy check to avoid rendering 0 */}
+            {purchasePrice > 0 && sellingPrice > 0 ? (
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Margin</Text>
-                <Text style={[styles.infoValue, { color: '#10B981', fontWeight: '600' }]}>
+                <Text style={[styles.infoValue, { color: Colors.success, fontWeight: '600' }]}>
                   {calculateMargin()}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           {/* Expiry Information */}
-          {product.expiry_date && (
+          {product.expiry_date ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>⏰ KADALUARSA</Text>
+              <Text style={styles.sectionTitle}>KADALUARSA</Text>
 
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Tanggal Kadaluarsa</Text>
                 <Text style={styles.infoValue}>{formatDate(product.expiry_date)}</Text>
               </View>
             </View>
-          )}
+          ) : null}
 
           {/* Other Information */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📋 LAINNYA</Text>
+            <Text style={styles.sectionTitle}>LAINNYA</Text>
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Kategori</Text>
@@ -257,12 +265,12 @@ export default function ItemDetailScreen({ route, navigation }) {
               <Text style={styles.infoValue}>{formatDate(product.updated_at)}</Text>
             </View>
 
-            {product.description && (
+            {product.description ? (
               <View style={styles.descriptionContainer}>
                 <Text style={styles.infoLabel}>Catatan</Text>
                 <Text style={styles.descriptionText}>{product.description}</Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           {/* Quick Actions */}
@@ -271,17 +279,17 @@ export default function ItemDetailScreen({ route, navigation }) {
 
             <View style={styles.actionsGrid}>
               <TouchableOpacity style={styles.actionBtn} onPress={handleStockIn}>
-                <Text style={styles.actionIcon}>📊</Text>
+                <Text style={styles.actionIcon}></Text>
                 <Text style={styles.actionText}>Stok Masuk</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtn} onPress={handleStockOut}>
-                <Text style={styles.actionIcon}>📤</Text>
+                <MaterialCommunityIcons name="arrow-up" size={20} color={Colors.primary} />
                 <Text style={styles.actionText}>Stok Keluar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.actionBtn} onPress={handleEdit}>
-                <Text style={styles.actionIcon}>✏️</Text>
+                <MaterialCommunityIcons name="pencil-outline" size={20} color={Colors.primary} />
                 <Text style={styles.actionText}>Edit</Text>
               </TouchableOpacity>
 
@@ -289,7 +297,7 @@ export default function ItemDetailScreen({ route, navigation }) {
                 style={[styles.actionBtn, styles.actionBtnDanger]}
                 onPress={handleDelete}
               >
-                <Text style={styles.actionIcon}>🗑️</Text>
+                <MaterialCommunityIcons name="delete-outline" size={20} color={Colors.danger} />
                 <Text style={styles.actionText}>Hapus</Text>
               </TouchableOpacity>
             </View>
@@ -321,11 +329,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#EF4444',
+    color: Colors.danger,
     marginBottom: 20,
   },
   backButton: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -381,7 +389,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -424,7 +432,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: Colors.bgSecondary,
   },
   infoLabel: {
     fontSize: 15,
@@ -451,14 +459,14 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     width: '48%',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.bgSecondary,
     paddingVertical: 20,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBtnDanger: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: Colors.dangerLight,
   },
   actionIcon: {
     fontSize: 32,

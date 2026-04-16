@@ -1,7 +1,4 @@
-/**
- * SQLite Database Schema for StockWise Mobile
- * Offline-first inventory management
- */
+// SQLite database schema for StockWise
 
 export const createTablesSQL = `
   -- Products/Items Table

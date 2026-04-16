@@ -1,8 +1,4 @@
-/**
- * DailyCheckService.js
- * Background service to check for low stock and expiring products
- * Location: src/services/DailyCheckService.js
- */
+// Background service for daily checks
 
 import BackgroundFetch from 'react-native-background-fetch';
 import { getLowStockProducts, getNearExpiryProducts } from '../database/queries/products';

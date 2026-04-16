@@ -1,9 +1,6 @@
-/**
- * Financial Analysis Screen
- * Detailed revenue and profit analysis with calendar and graphs
- */
+// Financial analysis screen
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -16,8 +13,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
-  getFinancialStatsByDateRange,
   getDailyFinancialBreakdown,
   getCategoryFinancialBreakdown,
 } from '../database/queries/transactions';
@@ -42,13 +39,12 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
   });
   const [selectedDate, setSelectedDate] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, [selectedPeriod, analysisType]);
-
+  // useFocusEffect handles both initial mount and returning to screen.
+  // useEffect is intentionally removed to prevent double-load on mount.
   useFocusEffect(
     React.useCallback(() => {
       loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedPeriod, analysisType])
   );
 
@@ -92,21 +88,22 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
 
     const field = analysisType === 'revenue' ? 'revenue' : 'profit';
     const values = data.map(d => d[field]);
-    
+
     const total = values.reduce((sum, val) => sum + val, 0);
     const average = total / values.length;
     const highest = Math.max(...values);
     const lowest = Math.min(...values);
 
-    // Calculate trend (compare first half vs second half)
-    const midPoint = Math.floor(values.length / 2);
-    const firstHalf = values.slice(0, midPoint);
-    const secondHalf = values.slice(midPoint);
-    
-    const firstAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
-    const secondAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
-    
-    const trend = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg * 100) : 0;
+    // Trend requires at least 2 data points to be meaningful
+    let trend = 0;
+    if (values.length >= 2) {
+      const midPoint = Math.floor(values.length / 2);
+      const firstHalf = values.slice(0, midPoint);
+      const secondHalf = values.slice(midPoint);
+      const firstAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+      const secondAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+      trend = firstAvg > 0 ? ((secondAvg - firstAvg) / firstAvg * 100) : 0;
+    }
 
     setStats({ total, average, highest, lowest, trend });
   };
@@ -191,10 +188,10 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
                       {
                         height: Math.max(barHeight, 2),
                         backgroundColor: isSelected
-                          ? Colors.cardBlue
+                          ? Colors.primary
                           : analysisType === 'revenue'
-                          ? '#3B82F6'
-                          : '#10B981',
+                          ? Colors.primary
+                          : Colors.success,
                       },
                     ]}
                   />
@@ -222,8 +219,8 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
 
     const field = analysisType === 'revenue' ? 'revenue' : 'profit';
     const total = categoryData.reduce((sum, cat) => sum + cat[field], 0);
-    
-    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+    const colors = [Colors.primary, Colors.success, Colors.warning, Colors.danger, Colors.primary, Colors.danger];
 
     return (
       <View style={styles.chartContainer}>
@@ -267,6 +264,11 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
     const chartHeight = 200;
     const chartWidth = SCREEN_WIDTH - 64;
 
+    // A single data point cannot form a line; fall back to the bar chart.
+    if (dailyData.length < 2) {
+      return renderChart();
+    }
+
     return (
       <View style={styles.chartContainer}>
         <View style={[styles.lineChartContainer, { height: chartHeight + 40 }]}>
@@ -293,7 +295,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
                     {
                       left: x - 6,
                       top: y - 6,
-                      backgroundColor: isSelected ? Colors.cardBlue : '#3B82F6',
+                      backgroundColor: isSelected ? Colors.primary : Colors.primary,
                     },
                   ]}
                   onPress={() => setSelectedDate(isSelected ? null : item.date)}
@@ -334,7 +336,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
           </View>
           <View style={styles.selectedStat}>
             <Text style={styles.selectedStatLabel}>Untung</Text>
-            <Text style={[styles.selectedStatValue, { color: '#10B981' }]}>
+            <Text style={[styles.selectedStatValue, { color: Colors.success }]}>
               {formatCurrency(dayData.profit)}
             </Text>
           </View>
@@ -348,8 +350,8 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
           </View>
         </View>
         <View style={styles.selectedDateDetails}>
-          <Text style={styles.detailText}>📦 Transaksi: {dayData.transaction_count}</Text>
-          <Text style={styles.detailText}>💰 Rata-rata: {formatCurrency(dayData.revenue / dayData.transaction_count)}</Text>
+          <Text style={styles.detailText}>Transaksi: {dayData.transaction_count}</Text>
+          <Text style={styles.detailText}>Rata-rata: {formatCurrency(dayData.revenue / dayData.transaction_count)}</Text>
         </View>
       </View>
     );
@@ -359,7 +361,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.cardBlue} />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Memuat analisis...</Text>
         </View>
       </SafeAreaView>
@@ -372,7 +374,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Kembali</Text>
+            <MaterialCommunityIcons name="arrow-left" size={18} color={Colors.textDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Analisis Keuangan</Text>
           <Text style={styles.headerSubtitle}>Laporan detail pendapatan & keuntungan</Text>
@@ -385,7 +387,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
             onPress={() => setAnalysisType('revenue')}
           >
             <Text style={[styles.toggleText, analysisType === 'revenue' && styles.toggleTextActive]}>
-              💵 Pendapatan
+              Pendapatan
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -393,7 +395,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
             onPress={() => setAnalysisType('profit')}
           >
             <Text style={[styles.toggleText, analysisType === 'profit' && styles.toggleTextActive]}>
-              💎 Keuntungan
+              Keuntungan
             </Text>
           </TouchableOpacity>
         </View>
@@ -435,7 +437,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
               onPress={() => setChartType('bar')}
             >
               <Text style={[styles.chartTypeText, chartType === 'bar' && styles.chartTypeTextActive]}>
-                📊 Batang
+                Batang
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -443,7 +445,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
               onPress={() => setChartType('pie')}
             >
               <Text style={[styles.chartTypeText, chartType === 'pie' && styles.chartTypeTextActive]}>
-                🥧 Kategori
+                Kategori
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -451,7 +453,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
               onPress={() => setChartType('line')}
             >
               <Text style={[styles.chartTypeText, chartType === 'line' && styles.chartTypeTextActive]}>
-                📈 Tren
+                Tren
               </Text>
             </TouchableOpacity>
           </View>
@@ -472,13 +474,13 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
         <View style={styles.summaryContainer}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Tertinggi</Text>
-            <Text style={[styles.summaryValue, { color: '#10B981' }]}>
+            <Text style={[styles.summaryValue, { color: Colors.success }]}>
               {formatCurrency(stats.highest)}
             </Text>
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Terendah</Text>
-            <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
+            <Text style={[styles.summaryValue, { color: Colors.danger }]}>
               {formatCurrency(stats.lowest)}
             </Text>
           </View>
@@ -488,7 +490,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
         <View style={styles.trendContainer}>
           <Text style={styles.trendLabel}>Tren Pertumbuhan:</Text>
           <View style={[styles.trendBadge, stats.trend >= 0 ? styles.trendUp : styles.trendDown]}>
-            <Text style={styles.trendIcon}>{stats.trend >= 0 ? '📈' : '📉'}</Text>
+            <MaterialCommunityIcons name={stats.trend >= 0 ? "trending-up" : "trending-down"} size={20} color={stats.trend >= 0 ? Colors.success : Colors.danger} />
             <Text style={styles.trendText}>
               {stats.trend >= 0 ? '+' : ''}{stats.trend.toFixed(1)}%
             </Text>
@@ -524,7 +526,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
           <Text style={styles.sectionTitle}>Rincian Harian</Text>
           {dailyData.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>📊</Text>
+              <MaterialCommunityIcons name="chart-bar" size={48} color={Colors.textLight} />
               <Text style={styles.emptyText}>Belum ada transaksi untuk periode ini</Text>
             </View>
           ) : (
@@ -559,7 +561,7 @@ export default function FinancialAnalysisScreen({ route, navigation }) {
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>
-            {analysisType === 'revenue' ? '💵 Tentang Pendapatan' : '💎 Tentang Keuntungan'}
+            {analysisType === 'revenue' ? 'Tentang Pendapatan' : 'Tentang Keuntungan'}
           </Text>
           <Text style={styles.infoText}>
             {analysisType === 'revenue'
@@ -612,7 +614,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: Colors.cardBlue,
+    color: Colors.primary,
     fontWeight: '600',
   },
   headerTitle: {
@@ -642,7 +644,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   toggleButtonActive: {
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
   },
   toggleText: {
     fontSize: 16,
@@ -669,7 +671,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   periodButtonActive: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: Colors.bg,
   },
   periodText: {
     fontSize: 14,
@@ -677,7 +679,7 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
   },
   periodTextActive: {
-    color: Colors.cardBlue,
+    color: Colors.primary,
   },
 
   // Summary
@@ -727,10 +729,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   trendUp: {
-    backgroundColor: '#10B98120',
+    backgroundColor: 'rgba(16, 185, 129, 0.125)',
   },
   trendDown: {
-    backgroundColor: '#EF444420',
+    backgroundColor: 'rgba(239, 68, 68, 0.125)',
   },
   trendIcon: {
     fontSize: 16,
@@ -800,7 +802,7 @@ const styles = StyleSheet.create({
   },
   barLabelSelected: {
     fontWeight: '700',
-    color: Colors.cardBlue,
+    color: Colors.primary,
   },
   emptyChart: {
     height: 200,
@@ -820,7 +822,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.cardBlue,
+    borderLeftColor: Colors.primary,
   },
   selectedDateTitle: {
     fontSize: 16,
@@ -920,11 +922,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: Colors.border,
   },
   chartTypeButtonActive: {
-    backgroundColor: '#E0F2FE',
-    borderColor: Colors.cardBlue,
+    backgroundColor: Colors.bg,
+    borderColor: Colors.primary,
   },
   chartTypeText: {
     fontSize: 13,
@@ -932,7 +934,7 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
   },
   chartTypeTextActive: {
-    color: Colors.cardBlue,
+    color: Colors.primary,
   },
 
   // Pie Chart
@@ -996,7 +998,7 @@ const styles = StyleSheet.create({
   },
   gridLine: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: Colors.border,
   },
   lineChart: {
     position: 'relative',
@@ -1015,7 +1017,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     opacity: 0.2,
     top: -6,
     left: -6,
@@ -1034,11 +1036,11 @@ const styles = StyleSheet.create({
   infoBox: {
     marginHorizontal: 16,
     marginTop: 24,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: 'rgba(59, 130, 246, 0.05)',
     borderRadius: 12,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
+    borderLeftColor: Colors.primary,
   },
   infoTitle: {
     fontSize: 16,

@@ -1,7 +1,4 @@
-/**
- * Help & FAQ Screen - StockWise Mobile
- * Comprehensive help documentation for UMKM users in Indonesian
- */
+// Help & FAQ screen
 
 import React, { useState } from 'react';
 import {
@@ -13,6 +10,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Colors from '../styles/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 export default function HelpScreen({ navigation }) {
   const [expandedSection, setExpandedSection] = useState(null);
@@ -24,12 +22,12 @@ export default function HelpScreen({ navigation }) {
   const faqData = [
     {
       id: 'getting-started',
-      icon: '🚀',
+      icon: 'rocket-launch-outline',
       title: 'Memulai',
       questions: [
         {
           q: 'Bagaimana cara menambah produk baru?',
-          a: '1. Buka tab Inventory (🏬)\n2. Tekan tombol + di kanan bawah\n3. Isi informasi produk (nama, harga, stok minimum)\n4. Opsional: Ambil foto produk dengan kamera\n5. Tekan "Simpan Produk"',
+          a: '1. Buka tab Inventory (tab Inventory)\n2. Tekan tombol + di kanan bawah\n3. Isi informasi produk (nama, harga, stok minimum)\n4. Opsional: Ambil foto produk dengan kamera\n5. Tekan "Simpan Produk"',
         },
         {
           q: 'Apa itu stok minimum?',
@@ -43,7 +41,7 @@ export default function HelpScreen({ navigation }) {
     },
     {
       id: 'stock-management',
-      icon: '📦',
+      icon: 'package-variant',
       title: 'Kelola Stok',
       questions: [
         {
@@ -66,7 +64,7 @@ export default function HelpScreen({ navigation }) {
     },
     {
       id: 'barcode',
-      icon: '📱',
+      icon: 'cellphone',
       title: 'Barcode',
       questions: [
         {
@@ -85,7 +83,7 @@ export default function HelpScreen({ navigation }) {
     },
     {
       id: 'notifications',
-      icon: '🔔',
+      icon: 'bell-outline',
       title: 'Notifikasi',
       questions: [
         {
@@ -94,7 +92,7 @@ export default function HelpScreen({ navigation }) {
         },
         {
           q: 'Bagaimana mengatur notifikasi?',
-          a: 'Buka menu Pengaturan (⚙️) → Pengaturan Notifikasi\n\nAnda bisa aktif/nonaktifkan:\n- Notifikasi Stok Rendah\n- Notifikasi Kadaluarsa',
+          a: 'Buka menu Pengaturan (Settings) → Pengaturan Notifikasi\n\nAnda bisa aktif/nonaktifkan:\n- Notifikasi Stok Rendah\n- Notifikasi Kadaluarsa',
         },
         {
           q: 'Notifikasi tidak muncul, kenapa?',
@@ -104,12 +102,12 @@ export default function HelpScreen({ navigation }) {
     },
     {
       id: 'backup',
-      icon: '💾',
+      icon: 'content-save-outline',
       title: 'Backup & Restore',
       questions: [
         {
           q: 'Bagaimana cara backup data?',
-          a: '1. Buka tab Management (📋)\n2. Tekan tombol menu (⋮) di kanan atas\n3. Pilih "Backup Database"\n4. File backup akan tersimpan di folder aplikasi\n5. Anda bisa share file ini ke Google Drive, WhatsApp, dll untuk backup online',
+          a: '1. Buka tab Management (tab Management)\n2. Tekan tombol menu (menu) di kanan atas\n3. Pilih "Backup Database"\n4. File backup akan tersimpan di folder aplikasi\n5. Anda bisa share file ini ke Google Drive, WhatsApp, dll untuk backup online',
         },
         {
           q: 'Seberapa sering harus backup?',
@@ -117,22 +115,22 @@ export default function HelpScreen({ navigation }) {
         },
         {
           q: 'Bagaimana cara restore backup?',
-          a: '1. Pastikan file backup (.db) sudah ada di HP\n2. Buka tab Management → Menu (⋮)\n3. Pilih "Restore Database"\n4. Pilih file backup yang ingin di-restore\n5. PERHATIAN: Data saat ini akan diganti dengan data backup!\n6. Tekan "Ya, Restore"',
+          a: '1. Pastikan file backup (.db) sudah ada di HP\n2. Buka tab Management → Menu (menu)\n3. Pilih "Restore Database"\n4. Pilih file backup yang ingin di-restore\n5. PERHATIAN: Data saat ini akan diganti dengan data backup!\n6. Tekan "Ya, Restore"',
         },
         {
           q: 'Ganti HP baru, gimana pindahin data?',
-          a: 'MUDAH! Ikuti langkah ini:\n\nDI HP LAMA:\n1. Backup database\n2. Share file backup ke WhatsApp/email/Google Drive\n\nDI HP BARU:\n1. Install StockWise\n2. Download file backup dari cloud\n3. Restore database\n\nSelesai! Semua data Anda pindah ke HP baru! 🎉',
+          a: 'MUDAH! Ikuti langkah ini:\n\nDI HP LAMA:\n1. Backup database\n2. Share file backup ke WhatsApp/email/Google Drive\n\nDI HP BARU:\n1. Install StockWise\n2. Download file backup dari cloud\n3. Restore database\n\nSelesai! Semua data Anda pindah ke HP baru! ',
         },
       ],
     },
     {
       id: 'reports',
-      icon: '📊',
+      icon: 'chart-bar',
       title: 'Laporan & Export',
       questions: [
         {
           q: 'Bagaimana export laporan?',
-          a: '1. Buka tab Management\n2. Tekan tombol menu (⋮) → "Export Laporan"\n3. Pilih format:\n   • Excel (.xlsx) - untuk diedit di Excel/Sheets\n   • HTML - untuk di-convert ke PDF\n4. File akan tersimpan di folder aplikasi',
+          a: '1. Buka tab Management\n2. Tekan tombol menu (menu) → "Export Laporan"\n3. Pilih format:\n   • Excel (.xlsx) - untuk diedit di Excel/Sheets\n   • HTML - untuk di-convert ke PDF\n4. File akan tersimpan di folder aplikasi',
         },
         {
           q: 'Bagaimana lihat analisis keuangan?',
@@ -140,13 +138,13 @@ export default function HelpScreen({ navigation }) {
         },
         {
           q: 'Cara convert laporan HTML ke PDF?',
-          a: '1. Buka File Manager di HP\n2. Masuk ke: Android/data/com.stockwisemobile/files\n3. Cari file laporan .html\n4. Tap file → Buka dengan Browser (Chrome/Firefox)\n5. Di browser: Menu (⋮) → Print\n6. Pilih "Save as PDF"\n7. Selesai! 📄',
+          a: '1. Buka File Manager di HP\n2. Masuk ke: Android/data/com.stockwisemobile/files\n3. Cari file laporan .html\n4. Tap file → Buka dengan Browser (Chrome/Firefox)\n5. Di browser: Menu (menu) → Print\n6. Pilih "Save as PDF"\n7. Selesai! ',
         },
       ],
     },
     {
       id: 'troubleshooting',
-      icon: '🔧',
+      icon: 'wrench-outline',
       title: 'Troubleshooting',
       questions: [
         {
@@ -169,12 +167,12 @@ export default function HelpScreen({ navigation }) {
     },
     {
       id: 'tips',
-      icon: '💡',
+      icon: 'lightbulb-outline',
       title: 'Tips & Trik',
       questions: [
         {
           q: 'Tips menggunakan StockWise dengan efektif?',
-          a: '✅ INPUT STOK SEGERA setelah terima barang\n✅ CATAT HARGA BELI dan JUAL dengan benar\n✅ SET STOK MINIMUM yang realistis\n✅ BACKUP data setiap minggu\n✅ CEK LAPORAN secara berkala (minimal sebulan sekali)\n✅ MONITOR produk hampir kadaluarsa\n✅ GUNAKAN BARCODE untuk produk yang sering dijual',
+          a: '• INPUT STOK SEGERA setelah terima barang\n• CATAT HARGA BELI dan JUAL dengan benar\n• SET STOK MINIMUM yang realistis\n• BACKUP data setiap minggu\n• CEK LAPORAN secara berkala (minimal sebulan sekali)\n• MONITOR produk hampir kadaluarsa\n• GUNAKAN BARCODE untuk produk yang sering dijual',
         },
         {
           q: 'Cara mengelola produk musiman?',
@@ -182,7 +180,7 @@ export default function HelpScreen({ navigation }) {
         },
         {
           q: 'Strategi restok yang baik?',
-          a: '📊 ANALISA DATA:\n1. Lihat produk mana yang sering stok habis\n2. Cek berapa lama 1 batch habis\n3. Restok sebelum stok benar-benar habis\n\n💰 KELOLA MODAL:\n1. Jangan restok terlalu banyak sekaligus\n2. Prioritaskan produk best-seller\n3. Diversifikasi produk\n\n⏰ TIMING:\n1. Restok saat harga supplier turun\n2. Manfaatkan diskon grosir\n3. Hindari overstok menjelang musim sepi',
+          a: 'ANALISA DATA:\n1. Lihat produk mana yang sering stok habis\n2. Cek berapa lama 1 batch habis\n3. Restok sebelum stok benar-benar habis\n\nKELOLA MODAL:\n1. Jangan restok terlalu banyak sekaligus\n2. Prioritaskan produk best-seller\n3. Diversifikasi produk\n\nTIMING:\n1. Restok saat harga supplier turun\n2. Manfaatkan diskon grosir\n3. Hindari overstok menjelang musim sepi',
         },
       ],
     },
@@ -193,7 +191,7 @@ export default function HelpScreen({ navigation }) {
       questions: [
         {
           q: 'Apakah data saya aman?',
-          a: 'YA! 100% AMAN karena:\n✅ Data tersimpan OFFLINE di HP Anda\n✅ Tidak ada upload ke server online\n✅ Hanya Anda yang bisa akses data\n✅ Aplikasi tidak meminta akses internet\n\nData Anda PRIVATE dan aman!',
+          a: 'YA! 100% AMAN karena:\n• Data tersimpan OFFLINE di HP Anda\n• Tidak ada upload ke server online\n• Hanya Anda yang bisa akses data\n• Aplikasi tidak meminta akses internet\n\nData Anda PRIVATE dan aman!',
         },
         {
           q: 'Siapa yang bisa lihat data saya?',
@@ -201,7 +199,7 @@ export default function HelpScreen({ navigation }) {
         },
         {
           q: 'Bagaimana jika HP hilang/dicuri?',
-          a: '🚨 INI PENTINGNYA BACKUP RUTIN!\n\nJika HP hilang:\n1. Data hilang bersama HP (kecuali ada backup)\n2. Restore backup terakhir di HP baru\n\nCARA MELINDUNGI DATA:\n✅ Backup MINGGUAN ke cloud\n✅ Gunakan lock screen/PIN HP\n✅ Simpan backup di Google Drive\n✅ Jangan share file backup sembarangan',
+          a: 'INI PENTINGNYA BACKUP RUTIN!\n\nJika HP hilang:\n1. Data hilang bersama HP (kecuali ada backup)\n2. Restore backup terakhir di HP baru\n\nCARA MELINDUNGI DATA:\n• Backup MINGGUAN ke cloud\n• Gunakan lock screen/PIN HP\n• Simpan backup di Google Drive\n• Jangan share file backup sembarangan',
         },
       ],
     },
@@ -231,7 +229,7 @@ export default function HelpScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.textDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Bantuan & FAQ</Text>
         <View style={styles.headerSpacer} />
@@ -262,7 +260,7 @@ export default function HelpScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <View style={styles.sectionHeaderLeft}>
-                <Text style={styles.sectionIcon}>{section.icon}</Text>
+                <MaterialCommunityIcons name={section.icon} size={20} color={Colors.primary} />
                 <Text style={styles.sectionTitle}>{section.title}</Text>
               </View>
               <Text style={styles.expandIcon}>
@@ -276,11 +274,11 @@ export default function HelpScreen({ navigation }) {
                 {section.questions.map((item, index) => (
                   <View key={index} style={styles.qaItem}>
                     <View style={styles.questionContainer}>
-                      <Text style={styles.questionIcon}>❓</Text>
+                      <MaterialCommunityIcons name="help-circle-outline" size={18} color={Colors.primary} />
                       <Text style={styles.questionText}>{item.q}</Text>
                     </View>
                     <View style={styles.answerContainer}>
-                      <Text style={styles.answerIcon}>💡</Text>
+                      <MaterialCommunityIcons name="lightbulb-outline" size={18} color={Colors.warning} />
                       <Text style={styles.answerText}>{item.a}</Text>
                     </View>
                   </View>
@@ -320,20 +318,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 16,
-    backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: Colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -343,9 +336,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: Colors.white,
+    color: Colors.textDark,
   },
   headerSpacer: {
     width: 40,

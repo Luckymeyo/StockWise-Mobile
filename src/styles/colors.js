@@ -1,54 +1,43 @@
-// Modern Color Palette - StockWise Mobile
+// Claude-Inspired Warm Color Palette - StockWise Mobile
 export default {
-  // Backgrounds
-  bg: '#F8FAFC',
-  bgSecondary: '#F1F5F9',
-  
-  // Primary Colors - Modern Indigo
-  primary: '#6366F1',
-  primaryLight: '#EEF2FF',
-  primaryDark: '#4F46E5',
-  
-  // Success - Green
-  success: '#10B981',
-  successLight: '#DCFCE7',
-  successBg: '#F0FDF4',
-  
-  // Warning - Amber
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
-  warningBg: '#FFFBEB',
-  
-  // Danger - Red
-  danger: '#EF4444',
-  dangerLight: '#FEE2E2',
-  dangerBg: '#FEF2F2',
-  
-  // Text Colors
-  textDark: '#0F172A',
-  textPrimary: '#1E293B',
-  textSecondary: '#64748B',
-  textLight: '#94A3B8',
-  
-  // UI Elements
+  bg: '#FAF9F7',
+  bgSecondary: '#F5F0E8',
+  surface: '#FFFFFF',
+  surfaceWarm: '#FAF7F2',
+  primary: '#DA7756',
+  primaryLight: '#FDF0EB',
+  primaryDark: '#C4633F',
+  primarySoft: '#F8DDD1',
+  success: '#5D9E6F',
+  successLight: '#EAF4ED',
+  successBg: '#F2F9F4',
+  warning: '#C4873B',
+  warningLight: '#FBF0DD',
+  warningBg: '#FDF7EE',
+  danger: '#C4534A',
+  dangerLight: '#FBEAE9',
+  dangerBg: '#FDF2F1',
+  textDark: '#2D2B28',
+  textPrimary: '#3D3929',
+  textSecondary: '#807A6E',
+  textLight: '#A8A291',
+  textDisabled: '#C9C4B8',
   white: '#FFFFFF',
-  border: '#E2E8F0',
-  divider: '#F1F5F9',
-  
-  // Card Colors (for backwards compatibility)
-  cardBlue: '#6366F1',
-  cardCyan: '#08B9E5',
-  
-  // Tab Bar
-  tabBg: '#23323B',
-  tabIconBg: '#46555F',
-  
-  // Glass Effect
-  glassWhite: 'rgba(255, 255, 255, 0.1)',
-  glassBlack: 'rgba(0, 0, 0, 0.05)',
-  
-  // Shadows
-  shadowLight: 'rgba(0, 0, 0, 0.04)',
-  shadowMedium: 'rgba(0, 0, 0, 0.08)',
-  shadowDark: 'rgba(0, 0, 0, 0.12)',
+  black: '#1A1915',
+  border: '#E8E2D9',
+  divider: '#F0EBE3',
+  overlay: 'rgba(45, 43, 40, 0.5)',
+  cardBorder: '#EDE8E0',
+  inputBg: '#FAF9F7',
+  inputBorder: '#E0DAD0',
+  inputFocus: '#DA7756',
+  tabActive: '#DA7756',
+  tabInactive: '#A8A291',
+  tabBg: '#FAF9F7',
+  shadowColor: '#2D2B28',
+  cream: '#F5F0E8',
+  beige: '#EDE8DF',
+  sand: '#D6CFC3',
+  parchment: '#FAF7F2',
+  accent: '#B8612E',
 };

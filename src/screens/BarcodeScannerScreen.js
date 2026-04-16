@@ -1,7 +1,4 @@
-/**
- * Barcode Scanner Screen
- * Uses react-native-vision-camera with code scanner
- */
+// Barcode scanner screen
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -23,9 +20,8 @@ export default function BarcodeScannerScreen({ navigation, route }) {
 
   const { onScan } = route.params || {};
 
-  useEffect(() => {
-    requestCameraPermission();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { requestCameraPermission(); }, []);
 
   const requestCameraPermission = async () => {
     try {
@@ -98,7 +94,7 @@ export default function BarcodeScannerScreen({ navigation, route }) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.cardBlue} />
+          <ActivityIndicator size="large" color={Colors.primary} />
           <Text style={styles.loadingText}>Meminta izin kamera...</Text>
         </View>
       </SafeAreaView>
@@ -109,7 +105,7 @@ export default function BarcodeScannerScreen({ navigation, route }) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.center}>
-          <Text style={styles.errorText}>❌ Kamera tidak tersedia</Text>
+          <Text style={styles.errorText}>Kamera tidak tersedia</Text>
           <Text style={styles.errorSubtext}>Perangkat tidak memiliki kamera belakang</Text>
           <TouchableOpacity
             style={styles.backButtonError}
@@ -210,7 +206,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errorSubtext: {
-    color: '#9CA3AF',
+    color: Colors.textLight,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 24,
@@ -218,7 +214,7 @@ const styles = StyleSheet.create({
   backButtonError: {
     paddingHorizontal: 32,
     paddingVertical: 12,
-    backgroundColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
     borderRadius: 8,
     marginTop: 16,
   },
@@ -229,7 +225,7 @@ const styles = StyleSheet.create({
   },
   cameraPlaceholder: {
     flex: 1,
-    backgroundColor: '#1F2937',
+    backgroundColor: Colors.textPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -242,7 +238,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   placeholderSubtext: {
-    color: '#9CA3AF',
+    color: Colors.textLight,
     fontSize: 14,
     textAlign: 'center',
   },
@@ -318,8 +314,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: Colors.cardBlue,
-    shadowColor: Colors.cardBlue,
+    backgroundColor: Colors.white,
+    shadowColor: Colors.primary,
     shadowOpacity: 0.8,
     shadowRadius: 10,
   },
