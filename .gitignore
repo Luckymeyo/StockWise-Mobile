@@ -76,9 +76,13 @@ yarn-error.log
 
 
 
-# Add these lines:
- *.zip
- *.rar
- *.db
- *.csv
- *backup*
+# Archives, databases, and backups
+*.zip
+*.rar
+*.db
+*.csv
+*backup*
+**/Backup*/
+
+# Claude Code workspace
+.claude/
